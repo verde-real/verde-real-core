@@ -23,10 +23,15 @@ var VerdeRealCore = (() => {
   __export(index_exports, {
     CATEGORIAS: () => CATEGORIAS,
     CORES_CATEGORIA: () => CORES_CATEGORIA,
+    ICONE_FONTAWESOME_POR_TIPO: () => ICONE_FONTAWESOME_POR_TIPO,
+    ICONE_IONICONS_POR_TIPO: () => ICONE_IONICONS_POR_TIPO,
     STATUS_LABEL: () => STATUS_LABEL,
     TIPOS_EMPRESA: () => TIPOS_EMPRESA,
+    criarServicoNotificacoes: () => criarServicoNotificacoes,
     ehCliente: () => ehCliente,
     ehEmpresa: () => ehEmpresa,
+    formatarTempoRelativo: () => formatarTempoRelativo,
+    mapearNotificacao: () => mapearNotificacao,
     rotuloConquista: () => rotuloConquista,
     temSeloAtivo: () => temSeloAtivo,
     validarCadastro: () => validarCadastro
@@ -103,6 +108,88 @@ var VerdeRealCore = (() => {
     if (totalDenuncias >= 10) return "Guardi\xE3o Verde \u{1F333}";
     if (totalDenuncias >= 3) return "Vigilante Ambiental \u{1F33F}";
     return "Iniciante \u{1F331}";
+  }
+
+  // src/types/notificacao.ts
+  function mapearNotificacao(linha) {
+    return {
+      id: linha.id,
+      tipo: linha.tipo,
+      mensagem: linha.mensagem,
+      lida: linha.lida,
+      postId: linha.post_id,
+      empresaId: linha.empresa_id,
+      atorId: linha.ator_id,
+      criadoEm: linha.criado_em
+    };
+  }
+  var ICONE_FONTAWESOME_POR_TIPO = {
+    curtida: "fa-heart",
+    comentario: "fa-comment",
+    status_denuncia: "fa-flag",
+    selo_empresa: "fa-award",
+    seguidor: "fa-user-plus"
+  };
+  var ICONE_IONICONS_POR_TIPO = {
+    curtida: "heart",
+    comentario: "chatbubble",
+    status_denuncia: "flag",
+    selo_empresa: "ribbon",
+    seguidor: "person-add"
+  };
+  function formatarTempoRelativo(criadoEm) {
+    const diffMs = Date.now() - new Date(criadoEm).getTime();
+    const minutos = Math.floor(diffMs / 6e4);
+    if (minutos < 1) return "agora";
+    if (minutos < 60) return `${minutos}min`;
+    const horas = Math.floor(minutos / 60);
+    if (horas < 24) return `${horas}h`;
+    const dias = Math.floor(horas / 24);
+    return `${dias}d`;
+  }
+
+  // src/services/notificacoes.ts
+  function criarServicoNotificacoes(supabase) {
+    return {
+      async buscarNotificacoes(usuarioId, limite = 50) {
+        const { data, error } = await supabase.from("notificacoes").select("*").eq("destinatario_id", usuarioId).order("criado_em", { ascending: false }).limit(limite);
+        if (error) throw new Error(error.message);
+        return (data ?? []).map(mapearNotificacao);
+      },
+      async contarNaoLidas(usuarioId) {
+        const { count, error } = await supabase.from("notificacoes").select("*", { count: "exact", head: true }).eq("destinatario_id", usuarioId).eq("lida", false);
+        if (error) throw new Error(error.message);
+        return count ?? 0;
+      },
+      async marcarComoLida(notificacaoId) {
+        const { error } = await supabase.from("notificacoes").update({ lida: true }).eq("id", notificacaoId);
+        if (error) throw new Error(error.message);
+      },
+      async marcarTodasComoLidas(usuarioId) {
+        const { error } = await supabase.from("notificacoes").update({ lida: true }).eq("destinatario_id", usuarioId).eq("lida", false);
+        if (error) throw new Error(error.message);
+      },
+      async deletarNotificacao(notificacaoId) {
+        const { error } = await supabase.from("notificacoes").delete().eq("id", notificacaoId);
+        if (error) throw new Error(error.message);
+      },
+      ouvirNovasNotificacoes(usuarioId, aoReceber) {
+        const nomeCanal = `notificacoes:${usuarioId}:${Date.now()}`;
+        const canal = supabase.channel(nomeCanal).on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notificacoes",
+            filter: `destinatario_id=eq.${usuarioId}`
+          },
+          (payload) => aoReceber(mapearNotificacao(payload.new))
+        ).subscribe();
+        return () => {
+          supabase.removeChannel(canal);
+        };
+      }
+    };
   }
   return __toCommonJS(index_exports);
 })();

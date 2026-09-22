@@ -1,3 +1,4 @@
 export * from './types/usuario';
 export * from './types/post';
 export * from './types/notificacao';
+export * from './services/notificacoes';
