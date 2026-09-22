@@ -23,14 +23,17 @@ __export(index_exports, {
   CATEGORIAS: () => CATEGORIAS,
   CORES_CATEGORIA: () => CORES_CATEGORIA,
   STATUS_LABEL: () => STATUS_LABEL,
+  TIPOS_EMPRESA: () => TIPOS_EMPRESA,
   ehCliente: () => ehCliente,
   ehEmpresa: () => ehEmpresa,
   rotuloConquista: () => rotuloConquista,
-  temSeloAtivo: () => temSeloAtivo
+  temSeloAtivo: () => temSeloAtivo,
+  validarCadastro: () => validarCadastro
 });
 module.exports = __toCommonJS(index_exports);
 
 // src/types/usuario.ts
+var TIPOS_EMPRESA = ["empresa", "empresa_selo"];
 function ehEmpresa(usuario) {
   return !!usuario && (usuario.tipo === "empresa" || usuario.tipo === "empresa_selo");
 }
@@ -39,6 +42,36 @@ function ehCliente(usuario) {
 }
 function temSeloAtivo(usuario) {
   return !!usuario && usuario.tipo === "empresa_selo";
+}
+var REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var SENHA_MIN_CARACTERES = 6;
+function validarCadastro(dados) {
+  const erros = [];
+  if (!dados.nome || !dados.nome.trim()) {
+    erros.push({ campo: "nome", mensagem: "Informe seu nome." });
+  } else if (dados.nome.trim().length < 2) {
+    erros.push({ campo: "nome", mensagem: "O nome precisa ter pelo menos 2 caracteres." });
+  }
+  if (!dados.email || !dados.email.trim()) {
+    erros.push({ campo: "email", mensagem: "Informe seu e-mail." });
+  } else if (!REGEX_EMAIL.test(dados.email.trim())) {
+    erros.push({ campo: "email", mensagem: "Informe um e-mail v\xE1lido." });
+  }
+  if (!dados.senha) {
+    erros.push({ campo: "senha", mensagem: "Informe uma senha." });
+  } else if (dados.senha.length < SENHA_MIN_CARACTERES) {
+    erros.push({ campo: "senha", mensagem: `A senha precisa ter pelo menos ${SENHA_MIN_CARACTERES} caracteres.` });
+  }
+  if (dados.senha !== dados.confirmarSenha) {
+    erros.push({ campo: "confirmarSenha", mensagem: "As senhas n\xE3o coincidem." });
+  }
+  if (dados.tipo !== "cliente" && dados.tipo !== "empresa") {
+    erros.push({ campo: "tipo", mensagem: "Selecione o tipo de conta." });
+  }
+  if (!dados.aceitouTermos) {
+    erros.push({ campo: "aceitouTermos", mensagem: "Voc\xEA precisa aceitar os termos de uso." });
+  }
+  return erros;
 }
 
 // src/types/post.ts
@@ -76,8 +109,10 @@ function rotuloConquista(totalDenuncias) {
   CATEGORIAS,
   CORES_CATEGORIA,
   STATUS_LABEL,
+  TIPOS_EMPRESA,
   ehCliente,
   ehEmpresa,
   rotuloConquista,
-  temSeloAtivo
+  temSeloAtivo,
+  validarCadastro
 });
