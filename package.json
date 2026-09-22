@@ -7,8 +7,8 @@
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm,iife --global-name VerdeRealCore --dts",
-    "dev": "tsup src/index.ts --format cjs,esm,iife --global-name VerdeRealCore --dts --watch"
+    "build": "tsup src/index.ts --format cjs,esm,iife --global-name VerdeRealCore && tsc --emitDeclarationOnly --outDir dist",
+    "dev": "tsup src/index.ts --format cjs,esm,iife --global-name VerdeRealCore --watch"
   },
   "devDependencies": {
     "tsup": "^8.3.0",
