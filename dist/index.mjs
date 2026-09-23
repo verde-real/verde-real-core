@@ -152,6 +152,51 @@ function criarServicoNotificacoes(supabase) {
     }
   };
 }
+
+// src/services/curtidas.ts
+function criarServicoCurtidas(supabase) {
+  return {
+    async alternarCurtida(usuarioId, postId, curtidoAtualmente) {
+      if (curtidoAtualmente) {
+        const { error } = await supabase.from("curtidas").delete().eq("user_id", usuarioId).eq("post_id", postId);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase.from("curtidas").insert({ user_id: usuarioId, post_id: postId });
+        if (error) throw new Error(error.message);
+      }
+    },
+    async verificarCurtida(usuarioId, postId) {
+      const { data, error } = await supabase.from("curtidas").select("id").eq("post_id", postId).eq("user_id", usuarioId).maybeSingle();
+      if (error) return false;
+      return !!data;
+    }
+  };
+}
+
+// src/services/comentarios.ts
+function mapearComentario(linha) {
+  return {
+    id: linha.id,
+    conteudo: linha.conteudo,
+    criadoEm: linha.criado_em,
+    autor: { id: linha.autor?.id, nome: linha.autor?.nome ?? "Usu\xE1rio", avatarUrl: linha.autor?.avatar_url ?? null }
+  };
+}
+function criarServicoComentarios(supabase) {
+  return {
+    async buscarComentarios(postId) {
+      const { data, error } = await supabase.from("comentarios").select("*, autor:profiles!comentarios_autor_id_fkey(*)").eq("post_id", postId).order("criado_em", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(mapearComentario);
+    },
+    async criarComentario(postId, autorId, conteudo) {
+      if (!conteudo || !conteudo.trim()) throw new Error("Digite um coment\xE1rio.");
+      const { data, error } = await supabase.from("comentarios").insert({ post_id: postId, autor_id: autorId, conteudo: conteudo.trim() }).select("*, autor:profiles!comentarios_autor_id_fkey(*)").single();
+      if (error) throw new Error(error.message);
+      return mapearComentario(data);
+    }
+  };
+}
 export {
   CATEGORIAS,
   CORES_CATEGORIA,
@@ -159,6 +204,8 @@ export {
   ICONE_IONICONS_POR_TIPO,
   STATUS_LABEL,
   TIPOS_EMPRESA,
+  criarServicoComentarios,
+  criarServicoCurtidas,
   criarServicoNotificacoes,
   ehCliente,
   ehEmpresa,
