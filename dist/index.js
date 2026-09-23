@@ -29,6 +29,7 @@ __export(index_exports, {
   criarServicoComentarios: () => criarServicoComentarios,
   criarServicoCurtidas: () => criarServicoCurtidas,
   criarServicoNotificacoes: () => criarServicoNotificacoes,
+  criarServicoPosts: () => criarServicoPosts,
   ehCliente: () => ehCliente,
   ehEmpresa: () => ehEmpresa,
   formatarTempoRelativo: () => formatarTempoRelativo,
@@ -238,6 +239,106 @@ function criarServicoComentarios(supabase) {
     }
   };
 }
+
+// src/services/posts.ts
+function mapearPost(linha, idsCurtidos) {
+  return {
+    id: linha.id,
+    conteudo: linha.conteudo,
+    categoria: linha.categoria,
+    status: linha.status,
+    midiaUrl: linha.midia_url,
+    tipoMidia: linha.tipo_midia,
+    latitude: linha.latitude,
+    longitude: linha.longitude,
+    criadoEm: linha.criado_em,
+    autor: {
+      id: linha.autor.id,
+      nome: linha.autor.nome,
+      email: linha.autor.email,
+      tipo: linha.autor.tipo,
+      avatarUrl: linha.autor.avatar_url
+    },
+    empresa: linha.empresa ? {
+      id: linha.empresa.id,
+      nome: linha.empresa.nome,
+      email: linha.empresa.email,
+      tipo: linha.empresa.tipo,
+      avatarUrl: linha.empresa.avatar_url
+    } : null,
+    totalCurtidas: linha.curtidas?.[0]?.count ?? 0,
+    curtidoPorMim: idsCurtidos.has(linha.id)
+  };
+}
+var SELECT_POST = `*,
+  autor:profiles!posts_autor_id_fkey(*),
+  empresa:profiles!posts_empresa_id_fkey(*),
+  curtidas(count)`;
+function criarServicoPosts(supabase) {
+  async function idsCurtidosDoUsuario(usuarioId) {
+    if (!usuarioId) return /* @__PURE__ */ new Set();
+    const { data } = await supabase.from("curtidas").select("post_id").eq("user_id", usuarioId);
+    return new Set((data ?? []).map((c) => c.post_id));
+  }
+  return {
+    async buscarPosts(usuarioId, categoria) {
+      let query = supabase.from("posts").select(SELECT_POST).order("criado_em", { ascending: false });
+      if (categoria) query = query.eq("categoria", categoria);
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      const idsCurtidos = await idsCurtidosDoUsuario(usuarioId);
+      return (data ?? []).map((linha) => mapearPost(linha, idsCurtidos));
+    },
+    async buscarPostPorId(postId, usuarioId) {
+      const { data, error } = await supabase.from("posts").select(SELECT_POST).eq("id", postId).single();
+      if (error || !data) return null;
+      const idsCurtidos = await idsCurtidosDoUsuario(usuarioId);
+      return mapearPost(data, idsCurtidos);
+    },
+    async criarPost(dados) {
+      const { data, error } = await supabase.from("posts").insert({
+        autor_id: dados.autorId,
+        conteudo: dados.conteudo,
+        categoria: dados.categoria,
+        midia_url: dados.midiaUrl ?? null,
+        tipo_midia: dados.tipoMidia ?? null,
+        latitude: dados.latitude ?? null,
+        longitude: dados.longitude ?? null,
+        empresa_id: dados.empresaId ?? null
+      }).select(SELECT_POST).single();
+      if (error) throw new Error(error.message);
+      return mapearPost(data, /* @__PURE__ */ new Set());
+    },
+    async buscarPostsPorAutor(autorId, usuarioId) {
+      const { data, error } = await supabase.from("posts").select(SELECT_POST).eq("autor_id", autorId).order("criado_em", { ascending: false });
+      if (error) throw new Error(error.message);
+      const idsCurtidos = await idsCurtidosDoUsuario(usuarioId);
+      return (data ?? []).map((linha) => mapearPost(linha, idsCurtidos));
+    },
+    async buscarPostsPorEmpresa(empresaId, usuarioId) {
+      const { data, error } = await supabase.from("posts").select(SELECT_POST).eq("empresa_id", empresaId).order("criado_em", { ascending: false });
+      if (error) throw new Error(error.message);
+      const idsCurtidos = await idsCurtidosDoUsuario(usuarioId);
+      return (data ?? []).map((linha) => mapearPost(linha, idsCurtidos));
+    },
+    async buscarPostsCurtidosPorMim(usuarioId) {
+      const { data: curtidas, error: erroCurtidas } = await supabase.from("curtidas").select("post_id").eq("user_id", usuarioId);
+      if (erroCurtidas) throw new Error(erroCurtidas.message);
+      const idsPosts = (curtidas ?? []).map((c) => c.post_id);
+      if (idsPosts.length === 0) return [];
+      const { data, error } = await supabase.from("posts").select(SELECT_POST).in("id", idsPosts).order("criado_em", { ascending: false });
+      if (error) throw new Error(error.message);
+      const idsCurtidosSet = new Set(idsPosts);
+      return (data ?? []).map((linha) => mapearPost(linha, idsCurtidosSet));
+    },
+    async buscarEmpresas(termo) {
+      if (!termo.trim()) return [];
+      const { data, error } = await supabase.from("profiles").select("id, nome, avatar_url").eq("tipo", "empresa").ilike("nome", `%${termo.trim()}%`).limit(8);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }
+  };
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   CATEGORIAS,
@@ -249,6 +350,7 @@ function criarServicoComentarios(supabase) {
   criarServicoComentarios,
   criarServicoCurtidas,
   criarServicoNotificacoes,
+  criarServicoPosts,
   ehCliente,
   ehEmpresa,
   formatarTempoRelativo,
