@@ -14,6 +14,8 @@ export declare function criarServicoPosts(supabase: ClienteSupabaseMinimo): {
     buscarPosts(usuarioId: string | null, categoria?: string | null): Promise<Post[]>;
     buscarPostPorId(postId: string, usuarioId: string | null): Promise<Post | null>;
     criarPost(dados: DadosCriarPost): Promise<Post>;
+    atualizarPost(postId: string, autorId: string, novoConteudo: string): Promise<Post>;
+    deletarPost(postId: string, autorId: string): Promise<void>;
     buscarPostsPorAutor(autorId: string, usuarioId: string | null): Promise<Post[]>;
     buscarPostsPorEmpresa(empresaId: string, usuarioId: string | null): Promise<Post[]>;
     buscarPostsCurtidosPorMim(usuarioId: string): Promise<Post[]>;

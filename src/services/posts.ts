@@ -92,6 +92,29 @@ export function criarServicoPosts(supabase: ClienteSupabaseMinimo) {
       return mapearPost(data, new Set());
     },
 
+    async atualizarPost(postId: string, autorId: string, novoConteudo: string): Promise<Post> {
+      const conteudo = novoConteudo.trim();
+      if (!conteudo) throw new Error('A legenda não pode ficar vazia.');
+
+      const { data, error } = await supabase
+        .from('posts')
+        .update({ conteudo, status: 'em_analise' })
+        .eq('id', postId)
+        .eq('autor_id', autorId)
+        .select(SELECT_POST)
+        .single();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('Não foi possível atualizar esta publicação.');
+
+      const idsCurtidos = await idsCurtidosDoUsuario(autorId);
+      return mapearPost(data, idsCurtidos);
+    },
+
+    async deletarPost(postId: string, autorId: string): Promise<void> {
+      const { error } = await supabase.from('posts').delete().eq('id', postId).eq('autor_id', autorId);
+      if (error) throw new Error(error.message);
+    },
+
     async buscarPostsPorAutor(autorId: string, usuarioId: string | null): Promise<Post[]> {
       const { data, error } = await supabase
         .from('posts')
@@ -121,7 +144,7 @@ export function criarServicoPosts(supabase: ClienteSupabaseMinimo) {
         .eq('user_id', usuarioId);
       if (erroCurtidas) throw new Error(erroCurtidas.message);
 
-      const idsPosts = (curtidas ?? []).map((c: any) => c.post_id);
+      const idsPosts: string[] = (curtidas ?? []).map((c: any) => c.post_id);
       if (idsPosts.length === 0) return [];
 
       const { data, error } = await supabase

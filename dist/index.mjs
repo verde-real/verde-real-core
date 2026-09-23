@@ -267,6 +267,19 @@ function criarServicoPosts(supabase) {
       if (error) throw new Error(error.message);
       return mapearPost(data, /* @__PURE__ */ new Set());
     },
+    async atualizarPost(postId, autorId, novoConteudo) {
+      const conteudo = novoConteudo.trim();
+      if (!conteudo) throw new Error("A legenda n\xE3o pode ficar vazia.");
+      const { data, error } = await supabase.from("posts").update({ conteudo, status: "em_analise" }).eq("id", postId).eq("autor_id", autorId).select(SELECT_POST).single();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error("N\xE3o foi poss\xEDvel atualizar esta publica\xE7\xE3o.");
+      const idsCurtidos = await idsCurtidosDoUsuario(autorId);
+      return mapearPost(data, idsCurtidos);
+    },
+    async deletarPost(postId, autorId) {
+      const { error } = await supabase.from("posts").delete().eq("id", postId).eq("autor_id", autorId);
+      if (error) throw new Error(error.message);
+    },
     async buscarPostsPorAutor(autorId, usuarioId) {
       const { data, error } = await supabase.from("posts").select(SELECT_POST).eq("autor_id", autorId).order("criado_em", { ascending: false });
       if (error) throw new Error(error.message);
