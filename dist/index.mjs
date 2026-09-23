@@ -297,6 +297,51 @@ function criarServicoPosts(supabase) {
     }
   };
 }
+
+// src/services/seguidores.ts
+function criarServicoSeguidores(supabase) {
+  return {
+    async estaSeguindo(seguidorId, empresaId) {
+      const { data, error } = await supabase.from("seguidores_empresa").select("id").eq("seguidor_id", seguidorId).eq("empresa_id", empresaId).maybeSingle();
+      if (error) throw new Error(error.message);
+      return !!data;
+    },
+    async seguirEmpresa(seguidorId, empresaId) {
+      const { error } = await supabase.from("seguidores_empresa").insert({ seguidor_id: seguidorId, empresa_id: empresaId });
+      if (error) throw new Error(error.message);
+    },
+    async deixarDeSeguir(seguidorId, empresaId) {
+      const { error } = await supabase.from("seguidores_empresa").delete().eq("seguidor_id", seguidorId).eq("empresa_id", empresaId);
+      if (error) throw new Error(error.message);
+    },
+    async contarSeguidores(empresaId) {
+      const { count, error } = await supabase.from("seguidores_empresa").select("*", { count: "exact", head: true }).eq("empresa_id", empresaId);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    },
+    async contarSeguindo(seguidorId) {
+      const { count, error } = await supabase.from("seguidores_empresa").select("*", { count: "exact", head: true }).eq("seguidor_id", seguidorId);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    }
+  };
+}
+
+// src/services/ranking.ts
+function criarServicoRanking(supabase) {
+  return {
+    async buscarRanking(limite = 50) {
+      const { data, error } = await supabase.from("ranking").select("*").limit(limite);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((linha) => ({
+        id: linha.id,
+        nome: linha.nome,
+        avatarUrl: linha.avatar_url,
+        totalDenuncias: linha.total_denuncias
+      }));
+    }
+  };
+}
 export {
   CATEGORIAS,
   CORES_CATEGORIA,
@@ -308,6 +353,8 @@ export {
   criarServicoCurtidas,
   criarServicoNotificacoes,
   criarServicoPosts,
+  criarServicoRanking,
+  criarServicoSeguidores,
   ehCliente,
   ehEmpresa,
   formatarTempoRelativo,
