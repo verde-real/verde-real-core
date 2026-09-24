@@ -109,6 +109,197 @@ function formatarTempoRelativo(criadoEm) {
   return `${dias}d`;
 }
 
+// src/types/solicitacao-selo.ts
+var ROTULO_STATUS_SOLICITACAO = {
+  enviada: "Solicita\xE7\xE3o enviada",
+  em_analise: "Em an\xE1lise",
+  auditoria_agendada: "Auditoria agendada",
+  aguardando_informacoes: "Aguardando informa\xE7\xF5es",
+  aprovada: "Aprovada",
+  reprovada: "Reprovada",
+  cancelada: "Cancelada"
+};
+var STATUS_SOLICITACAO_ABERTOS = [
+  "enviada",
+  "em_analise",
+  "auditoria_agendada",
+  "aguardando_informacoes"
+];
+function solicitacaoEstaAberta(status) {
+  return STATUS_SOLICITACAO_ABERTOS.includes(status);
+}
+var ROTULO_METODO_PAGAMENTO = {
+  cartao: "Cart\xE3o",
+  pix: "Pix",
+  boleto: "Boleto"
+};
+var ROTULO_TIPO_DOCUMENTO = {
+  certificacao_ambiental: "Certifica\xE7\xE3o ambiental",
+  licenca: "Licen\xE7a",
+  contrato: "Contrato relevante",
+  comprovacao_metas: "Comprova\xE7\xE3o de metas ambientais",
+  outro: "Outro documento"
+};
+var MIMES_DOCUMENTO_PERMITIDOS = ["application/pdf", "image/jpeg", "image/png"];
+var EXTENSOES_DOCUMENTO_PERMITIDAS = ["pdf", "jpg", "jpeg", "png"];
+var TAMANHO_MAX_DOCUMENTO_BYTES = 10 * 1024 * 1024;
+var MIN_DOCUMENTOS_SOLICITACAO = 1;
+function podeAcessarSolicitacaoSelo(usuario) {
+  return ehEmpresa(usuario);
+}
+var REGEX_EMAIL2 = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var UFS_BRASIL = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO"
+];
+function apenasDigitos(valor) {
+  return (valor ?? "").replace(/\D/g, "");
+}
+function validarCNPJ(cnpj) {
+  const d = apenasDigitos(cnpj);
+  if (d.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(d)) return false;
+  const calcularDigito = (base) => {
+    let peso = base.length - 7;
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) {
+      soma += parseInt(base.charAt(i), 10) * peso--;
+      if (peso < 2) peso = 9;
+    }
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  const d1 = calcularDigito(d.substring(0, 12));
+  if (d1 !== parseInt(d.charAt(12), 10)) return false;
+  const d2 = calcularDigito(d.substring(0, 13));
+  return d2 === parseInt(d.charAt(13), 10);
+}
+function formatarCNPJ(cnpj) {
+  const d = apenasDigitos(cnpj).slice(0, 14);
+  return d.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2");
+}
+function dataHojeISO() {
+  const agora = /* @__PURE__ */ new Date();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  return `${agora.getFullYear()}-${mes}-${dia}`;
+}
+function dataISOValida(valor) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  if (!m) return false;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  const dia = Number(m[3]);
+  const d = new Date(ano, mes - 1, dia);
+  return d.getFullYear() === ano && d.getMonth() === mes - 1 && d.getDate() === dia;
+}
+function vazio(valor) {
+  return !valor || !valor.trim();
+}
+function validarDadosEmpresa(dados) {
+  const erros = [];
+  if (vazio(dados.cnpj)) erros.push({ campo: "cnpj", mensagem: "Informe o CNPJ." });
+  else if (!validarCNPJ(dados.cnpj)) erros.push({ campo: "cnpj", mensagem: "Informe um CNPJ v\xE1lido." });
+  if (vazio(dados.razaoSocial)) erros.push({ campo: "razaoSocial", mensagem: "Informe a raz\xE3o social." });
+  if (vazio(dados.nomeFantasia)) erros.push({ campo: "nomeFantasia", mensagem: "Informe o nome fantasia." });
+  if (vazio(dados.email)) erros.push({ campo: "email", mensagem: "Informe o e-mail empresarial." });
+  else if (!REGEX_EMAIL2.test(dados.email.trim())) erros.push({ campo: "email", mensagem: "Informe um e-mail v\xE1lido." });
+  const tel = apenasDigitos(dados.telefone);
+  if (!tel) erros.push({ campo: "telefone", mensagem: "Informe o telefone empresarial." });
+  else if (tel.length < 10 || tel.length > 11) erros.push({ campo: "telefone", mensagem: "Informe um telefone v\xE1lido com DDD." });
+  const cep = apenasDigitos(dados.cep);
+  if (!cep) erros.push({ campo: "cep", mensagem: "Informe o CEP." });
+  else if (cep.length !== 8) erros.push({ campo: "cep", mensagem: "Informe um CEP v\xE1lido." });
+  if (vazio(dados.endereco)) erros.push({ campo: "endereco", mensagem: "Informe o endere\xE7o." });
+  if (vazio(dados.cidade)) erros.push({ campo: "cidade", mensagem: "Informe a cidade." });
+  if (vazio(dados.estado)) erros.push({ campo: "estado", mensagem: "Informe o estado." });
+  else if (!UFS_BRASIL.includes(dados.estado.trim().toUpperCase())) erros.push({ campo: "estado", mensagem: "Informe uma sigla de estado v\xE1lida (ex.: SP)." });
+  if (vazio(dados.responsavelNome)) erros.push({ campo: "responsavelNome", mensagem: "Informe o respons\xE1vel pela solicita\xE7\xE3o." });
+  if (vazio(dados.responsavelCargo)) erros.push({ campo: "responsavelCargo", mensagem: "Informe o cargo ou fun\xE7\xE3o do respons\xE1vel." });
+  return erros;
+}
+function validarArquivoDocumento(arquivo) {
+  const erros = [];
+  const extensao = (arquivo.nomeArquivo.split(".").pop() ?? "").toLowerCase();
+  if (!MIMES_DOCUMENTO_PERMITIDOS.includes(arquivo.mimeType) || !EXTENSOES_DOCUMENTO_PERMITIDAS.includes(extensao)) {
+    erros.push({ campo: "documentos", mensagem: `"${arquivo.nomeArquivo}": envie apenas PDF, JPG ou PNG.` });
+  }
+  if (arquivo.tamanhoBytes <= 0) {
+    erros.push({ campo: "documentos", mensagem: `"${arquivo.nomeArquivo}": o arquivo est\xE1 vazio.` });
+  } else if (arquivo.tamanhoBytes > TAMANHO_MAX_DOCUMENTO_BYTES) {
+    const limiteMb = Math.round(TAMANHO_MAX_DOCUMENTO_BYTES / (1024 * 1024));
+    erros.push({ campo: "documentos", mensagem: `"${arquivo.nomeArquivo}": o arquivo passa do limite de ${limiteMb} MB.` });
+  }
+  return erros;
+}
+function validarDocumentos(documentos) {
+  if (!documentos || documentos.length < MIN_DOCUMENTOS_SOLICITACAO) {
+    return [{ campo: "documentos", mensagem: "Envie pelo menos um documento para a auditoria." }];
+  }
+  return documentos.flatMap(validarArquivoDocumento);
+}
+function validarAuditoria(dados) {
+  const erros = [];
+  if (vazio(dados.dataAuditoria)) {
+    erros.push({ campo: "dataAuditoria", mensagem: "Escolha a data da auditoria." });
+  } else if (!dataISOValida(dados.dataAuditoria)) {
+    erros.push({ campo: "dataAuditoria", mensagem: "Data inv\xE1lida." });
+  } else if (dados.dataAuditoria < dataHojeISO()) {
+    erros.push({ campo: "dataAuditoria", mensagem: "A data da auditoria n\xE3o pode ser anterior a hoje." });
+  }
+  if (vazio(dados.localAuditoria)) {
+    erros.push({ campo: "localAuditoria", mensagem: "Informe o local da auditoria." });
+  }
+  const metas = dados.metas ?? [];
+  if (metas.length === 0) {
+    erros.push({ campo: "metas", mensagem: "Informe pelo menos uma meta de sustentabilidade." });
+  } else if (metas.some((m) => vazio(m.descricao))) {
+    erros.push({ campo: "metas", mensagem: "Toda meta precisa ter uma descri\xE7\xE3o." });
+  }
+  return erros;
+}
+function validarPlanoPagamento(dados) {
+  const erros = [];
+  if (vazio(dados.plano)) erros.push({ campo: "plano", mensagem: "Selecione um plano." });
+  if (!dados.metodoPagamento || !(dados.metodoPagamento in ROTULO_METODO_PAGAMENTO)) {
+    erros.push({ campo: "metodoPagamento", mensagem: "Selecione o m\xE9todo de pagamento." });
+  }
+  return erros;
+}
+function validarSolicitacaoSelo(dados) {
+  return [
+    ...validarDadosEmpresa(dados.empresa),
+    ...validarDocumentos(dados.documentos),
+    ...validarAuditoria(dados.auditoria),
+    ...validarPlanoPagamento(dados.planoPagamento)
+  ];
+}
+
 // src/services/notificacoes.ts
 function criarServicoNotificacoes(supabase) {
   return {
@@ -355,24 +546,207 @@ function criarServicoRanking(supabase) {
     }
   };
 }
+
+// src/services/solicitacao-selo.ts
+var TABELA_SOLICITACOES_SELO = "solicitacoes_selo";
+var TABELA_DOCUMENTOS_SOLICITACAO = "solicitacoes_selo_documentos";
+var BUCKET_DOCUMENTOS_SELO = "documentos-selo";
+function mapearSolicitacaoSelo(row) {
+  return {
+    id: row.id,
+    empresaId: row.empresa_id,
+    status: row.status,
+    cnpj: row.cnpj,
+    razaoSocial: row.razao_social,
+    nomeFantasia: row.nome_fantasia,
+    email: row.email,
+    telefone: row.telefone,
+    cep: row.cep,
+    endereco: row.endereco,
+    cidade: row.cidade,
+    estado: row.estado,
+    responsavelNome: row.responsavel_nome,
+    responsavelCargo: row.responsavel_cargo,
+    informacoesAdicionais: row.informacoes_adicionais ?? null,
+    dataAuditoria: row.data_auditoria,
+    localAuditoria: row.local_auditoria,
+    metas: Array.isArray(row.metas) ? row.metas : [],
+    plano: row.plano,
+    metodoPagamento: row.metodo_pagamento,
+    observacaoAnalise: row.observacao_analise ?? null,
+    seloId: row.selo_id ?? null,
+    criadoEm: row.criado_em,
+    atualizadoEm: row.atualizado_em ?? null
+  };
+}
+function mapearDocumentoSolicitacao(row) {
+  return {
+    id: row.id,
+    solicitacaoId: row.solicitacao_id,
+    tipo: row.tipo,
+    nomeArquivo: row.nome_arquivo,
+    caminhoStorage: row.caminho_storage,
+    mimeType: row.mime_type,
+    tamanhoBytes: row.tamanho_bytes,
+    criadoEm: row.criado_em
+  };
+}
+var ErroSolicitacaoSelo = class _ErroSolicitacaoSelo extends Error {
+  constructor(mensagem, erros = []) {
+    super(mensagem);
+    this.name = "ErroSolicitacaoSelo";
+    this.erros = erros;
+    Object.setPrototypeOf(this, _ErroSolicitacaoSelo.prototype);
+  }
+};
+function gerarUuid() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : r & 3 | 8).toString(16);
+  });
+}
+function extensaoDe(nomeArquivo) {
+  return (nomeArquivo.split(".").pop() ?? "").toLowerCase();
+}
+function criarServicoSolicitacaoSelo(supabase) {
+  return {
+    /** Solicitação mais recente da empresa (ou null). */
+    async buscarSolicitacaoAtual(empresaId) {
+      const { data, error } = await supabase.from(TABELA_SOLICITACOES_SELO).select("*").eq("empresa_id", empresaId).order("criado_em", { ascending: false }).limit(1);
+      if (error) throw new Error(error.message);
+      const row = (data ?? [])[0];
+      return row ? mapearSolicitacaoSelo(row) : null;
+    },
+    async buscarHistorico(empresaId) {
+      const { data, error } = await supabase.from(TABELA_SOLICITACOES_SELO).select("*").eq("empresa_id", empresaId).order("criado_em", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(mapearSolicitacaoSelo);
+    },
+    async buscarDocumentos(solicitacaoId) {
+      const { data, error } = await supabase.from(TABELA_DOCUMENTOS_SOLICITACAO).select("*").eq("solicitacao_id", solicitacaoId).order("criado_em", { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(mapearDocumentoSolicitacao);
+    },
+    /** Link temporário para abrir um documento (bucket privado — nunca URL pública). */
+    async gerarUrlDocumento(caminhoStorage, expiraEmSegundos = 60) {
+      const { data, error } = await supabase.storage.from(BUCKET_DOCUMENTOS_SELO).createSignedUrl(caminhoStorage, expiraEmSegundos);
+      if (error) throw new Error(error.message);
+      return data.signedUrl;
+    },
+    /**
+     * Envia a solicitação. Ela entra como 'enviada' (em análise) — NUNCA concede selo.
+     * Ordem: valida → confere regras → envia arquivos → grava a solicitação → grava os documentos.
+     * O id é gerado antes para que uma falha no upload não deixe solicitação "aberta" sem documentos.
+     */
+    async enviarSolicitacao(usuario, dados, arquivos) {
+      if (!ehEmpresa(usuario)) {
+        throw new ErroSolicitacaoSelo("Apenas contas empresariais podem solicitar o selo.");
+      }
+      if (temSeloAtivo(usuario)) {
+        throw new ErroSolicitacaoSelo('Esta empresa j\xE1 possui um selo. Consulte-o na p\xE1gina "Solicitar Selo".');
+      }
+      if (arquivos.length !== dados.documentos.length) {
+        throw new ErroSolicitacaoSelo("Os documentos informados n\xE3o conferem com os arquivos enviados.");
+      }
+      const erros = validarSolicitacaoSelo(dados);
+      if (erros.length > 0) {
+        throw new ErroSolicitacaoSelo("Revise os campos destacados antes de enviar.", erros);
+      }
+      const atual = await this.buscarSolicitacaoAtual(usuario.id);
+      if (atual && solicitacaoEstaAberta(atual.status)) {
+        throw new ErroSolicitacaoSelo("Voc\xEA j\xE1 tem uma solicita\xE7\xE3o em andamento.");
+      }
+      const solicitacaoId = gerarUuid();
+      const enviados = [];
+      for (const arquivo of arquivos) {
+        const caminho = `${usuario.id}/${solicitacaoId}/${gerarUuid()}.${extensaoDe(arquivo.nomeArquivo)}`;
+        const { error: error2 } = await supabase.storage.from(BUCKET_DOCUMENTOS_SELO).upload(caminho, arquivo.corpo, { contentType: arquivo.mimeType, upsert: false });
+        if (error2) throw new Error(`Falha ao enviar "${arquivo.nomeArquivo}": ${error2.message}`);
+        enviados.push({ arquivo, caminho });
+      }
+      const { empresa, auditoria, planoPagamento } = dados;
+      const { data, error } = await supabase.from(TABELA_SOLICITACOES_SELO).insert({
+        id: solicitacaoId,
+        empresa_id: usuario.id,
+        status: "enviada",
+        cnpj: apenasDigitos(empresa.cnpj),
+        razao_social: empresa.razaoSocial.trim(),
+        nome_fantasia: empresa.nomeFantasia.trim(),
+        email: empresa.email.trim(),
+        telefone: apenasDigitos(empresa.telefone),
+        cep: apenasDigitos(empresa.cep),
+        endereco: empresa.endereco.trim(),
+        cidade: empresa.cidade.trim(),
+        estado: empresa.estado.trim().toUpperCase(),
+        responsavel_nome: empresa.responsavelNome.trim(),
+        responsavel_cargo: empresa.responsavelCargo.trim(),
+        informacoes_adicionais: empresa.informacoesAdicionais?.trim() || null,
+        data_auditoria: auditoria.dataAuditoria,
+        local_auditoria: auditoria.localAuditoria.trim(),
+        metas: auditoria.metas,
+        plano: planoPagamento.plano.trim(),
+        metodo_pagamento: planoPagamento.metodoPagamento
+      }).select("*").single();
+      if (error) throw new Error(error.message);
+      const linhasDocumentos = enviados.map(({ arquivo, caminho }) => ({
+        solicitacao_id: solicitacaoId,
+        tipo: arquivo.tipo,
+        nome_arquivo: arquivo.nomeArquivo,
+        caminho_storage: caminho,
+        mime_type: arquivo.mimeType,
+        tamanho_bytes: arquivo.tamanhoBytes
+      }));
+      const { error: erroDocs } = await supabase.from(TABELA_DOCUMENTOS_SOLICITACAO).insert(linhasDocumentos);
+      if (erroDocs) throw new Error(erroDocs.message);
+      return mapearSolicitacaoSelo(data);
+    }
+  };
+}
 export {
+  BUCKET_DOCUMENTOS_SELO,
   CATEGORIAS,
   CORES_CATEGORIA,
+  EXTENSOES_DOCUMENTO_PERMITIDAS,
+  ErroSolicitacaoSelo,
   ICONE_FONTAWESOME_POR_TIPO,
   ICONE_IONICONS_POR_TIPO,
+  MIMES_DOCUMENTO_PERMITIDOS,
+  MIN_DOCUMENTOS_SOLICITACAO,
+  ROTULO_METODO_PAGAMENTO,
+  ROTULO_STATUS_SOLICITACAO,
+  ROTULO_TIPO_DOCUMENTO,
   STATUS_LABEL,
+  STATUS_SOLICITACAO_ABERTOS,
+  TABELA_DOCUMENTOS_SOLICITACAO,
+  TABELA_SOLICITACOES_SELO,
+  TAMANHO_MAX_DOCUMENTO_BYTES,
   TIPOS_EMPRESA,
+  UFS_BRASIL,
+  apenasDigitos,
   criarServicoComentarios,
   criarServicoCurtidas,
   criarServicoNotificacoes,
   criarServicoPosts,
   criarServicoRanking,
   criarServicoSeguidores,
+  criarServicoSolicitacaoSelo,
   ehCliente,
   ehEmpresa,
+  formatarCNPJ,
   formatarTempoRelativo,
+  mapearDocumentoSolicitacao,
   mapearNotificacao,
+  mapearSolicitacaoSelo,
+  podeAcessarSolicitacaoSelo,
   rotuloConquista,
+  solicitacaoEstaAberta,
   temSeloAtivo,
-  validarCadastro
+  validarArquivoDocumento,
+  validarAuditoria,
+  validarCNPJ,
+  validarCadastro,
+  validarDadosEmpresa,
+  validarDocumentos,
+  validarPlanoPagamento,
+  validarSolicitacaoSelo
 };
