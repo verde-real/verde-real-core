@@ -30,6 +30,7 @@ var VerdeRealCore = (() => {
     ICONE_IONICONS_POR_TIPO: () => ICONE_IONICONS_POR_TIPO,
     MIMES_DOCUMENTO_PERMITIDOS: () => MIMES_DOCUMENTO_PERMITIDOS,
     MIN_DOCUMENTOS_SOLICITACAO: () => MIN_DOCUMENTOS_SOLICITACAO,
+    REGEX_USERNAME: () => REGEX_USERNAME,
     ROTULO_METODO_PAGAMENTO: () => ROTULO_METODO_PAGAMENTO,
     ROTULO_STATUS_SOLICITACAO: () => ROTULO_STATUS_SOLICITACAO,
     ROTULO_TIPO_DOCUMENTO: () => ROTULO_TIPO_DOCUMENTO,
@@ -56,9 +57,11 @@ var VerdeRealCore = (() => {
     mapearNotificacao: () => mapearNotificacao,
     mapearSolicitacaoSelo: () => mapearSolicitacaoSelo,
     podeAcessarSolicitacaoSelo: () => podeAcessarSolicitacaoSelo,
+    precisaEscolherUsername: () => precisaEscolherUsername,
     rotuloConquista: () => rotuloConquista,
     solicitacaoEstaAberta: () => solicitacaoEstaAberta,
     temSeloAtivo: () => temSeloAtivo,
+    usernameValido: () => usernameValido,
     validarArquivoDocumento: () => validarArquivoDocumento,
     validarAuditoria: () => validarAuditoria,
     validarCNPJ: () => validarCNPJ,
@@ -71,6 +74,16 @@ var VerdeRealCore = (() => {
 
   // src/types/usuario.ts
   var TIPOS_EMPRESA = ["empresa", "empresa_selo"];
+  var REGEX_USERNAME = /^[a-z0-9][a-z0-9._]{1,22}[a-z0-9]$/;
+  function usernameValido(username) {
+    if (!username) return false;
+    const valor = username.trim().toLowerCase();
+    if (valor.includes("..")) return false;
+    return REGEX_USERNAME.test(valor);
+  }
+  function precisaEscolherUsername(usuario) {
+    return !!usuario && !usuario.username;
+  }
   function ehEmpresa(usuario) {
     return !!usuario && (usuario.tipo === "empresa" || usuario.tipo === "empresa_selo");
   }
@@ -477,14 +490,16 @@ var VerdeRealCore = (() => {
         nome: linha.autor.nome,
         email: linha.autor.email,
         tipo: linha.autor.tipo,
-        avatarUrl: linha.autor.avatar_url
+        avatarUrl: linha.autor.avatar_url,
+        username: linha.autor.username
       },
       empresa: linha.empresa ? {
         id: linha.empresa.id,
         nome: linha.empresa.nome,
         email: linha.empresa.email,
         tipo: linha.empresa.tipo,
-        avatarUrl: linha.empresa.avatar_url
+        avatarUrl: linha.empresa.avatar_url,
+        username: linha.empresa.username
       } : null,
       totalCurtidas: linha.curtidas?.[0]?.count ?? 0,
       curtidoPorMim: idsCurtidos.has(linha.id)

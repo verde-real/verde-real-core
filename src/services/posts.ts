@@ -18,6 +18,7 @@ function mapearPost(linha: any, idsCurtidos: Set<string>): Post {
       email: linha.autor.email,
       tipo: linha.autor.tipo,
       avatarUrl: linha.autor.avatar_url,
+      username: linha.autor.username,
     },
     empresa: linha.empresa
       ? {
@@ -26,6 +27,7 @@ function mapearPost(linha: any, idsCurtidos: Set<string>): Post {
           email: linha.empresa.email,
           tipo: linha.empresa.tipo,
           avatarUrl: linha.empresa.avatar_url,
+          username: linha.empresa.username,
         }
       : null,
     totalCurtidas: linha.curtidas?.[0]?.count ?? 0,

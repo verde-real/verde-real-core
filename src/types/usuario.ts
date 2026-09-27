@@ -8,6 +8,25 @@ export interface Usuario {
   email: string;
   tipo: TipoUsuario;
   avatarUrl?: string | null;
+  username?: string | null;
+}
+
+// ============================================================
+// USERNAME (@) — mesmo padrão do banco (CHECK profiles_username_formato):
+// minúsculas, números, ponto e underscore, 3 a 24 caracteres,
+// não pode começar/terminar com ponto nem ter ".." seguido.
+// ============================================================
+export const REGEX_USERNAME = /^[a-z0-9][a-z0-9._]{1,22}[a-z0-9]$/;
+
+export function usernameValido(username: string | null | undefined): boolean {
+  if (!username) return false;
+  const valor = username.trim().toLowerCase();
+  if (valor.includes('..')) return false;
+  return REGEX_USERNAME.test(valor);
+}
+
+export function precisaEscolherUsername(usuario: Pick<Usuario, 'username'> | null | undefined): boolean {
+  return !!usuario && !usuario.username;
 }
 
 export function ehEmpresa(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean {
