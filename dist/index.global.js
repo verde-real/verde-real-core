@@ -457,6 +457,45 @@ var VerdeRealCore = (() => {
       autor: { id: linha.autor?.id, nome: linha.autor?.nome ?? "Usu\xE1rio", avatarUrl: linha.autor?.avatar_url ?? null }
     };
   }
+  var REGEX_TOKEN_MENCAO = /@([a-zA-Z0-9._]{1,24})/g;
+  function extrairUsernamesMencionados(texto) {
+    const encontrados = /* @__PURE__ */ new Set();
+    let resultado;
+    REGEX_TOKEN_MENCAO.lastIndex = 0;
+    while ((resultado = REGEX_TOKEN_MENCAO.exec(texto)) !== null) {
+      const candidato = resultado[1].toLowerCase();
+      if (usernameValido(candidato)) {
+        encontrados.add(candidato);
+      }
+    }
+    return Array.from(encontrados);
+  }
+  async function notificarMencionados(supabase, conteudo, postId, autorId, autorLinha) {
+    const usernames = extrairUsernamesMencionados(conteudo);
+    if (usernames.length === 0) return;
+    const { data: perfis, error: erroBusca } = await supabase.from("profiles").select("id, username").in("username", usernames);
+    if (erroBusca) throw new Error(erroBusca.message);
+    if (!perfis || perfis.length === 0) return;
+    const nomeDoAutor = autorLinha?.username ? `@${autorLinha.username}` : autorLinha?.nome ?? "Algu\xE9m";
+    const idsJaProcessados = /* @__PURE__ */ new Set();
+    const linhasNovas = [];
+    for (const perfil of perfis) {
+      if (perfil.id === autorId) continue;
+      if (idsJaProcessados.has(perfil.id)) continue;
+      idsJaProcessados.add(perfil.id);
+      linhasNovas.push({
+        destinatario_id: perfil.id,
+        tipo: "comentario",
+        mensagem: `${nomeDoAutor} mencionou voc\xEA em um coment\xE1rio.`,
+        post_id: postId,
+        ator_id: autorId,
+        lida: false
+      });
+    }
+    if (linhasNovas.length === 0) return;
+    const { error: erroInsert } = await supabase.from("notificacoes").insert(linhasNovas);
+    if (erroInsert) throw new Error(erroInsert.message);
+  }
   function criarServicoComentarios(supabase) {
     return {
       async buscarComentarios(postId) {
@@ -466,9 +505,46 @@ var VerdeRealCore = (() => {
       },
       async criarComentario(postId, autorId, conteudo) {
         if (!conteudo || !conteudo.trim()) throw new Error("Digite um coment\xE1rio.");
-        const { data, error } = await supabase.from("comentarios").insert({ post_id: postId, autor_id: autorId, conteudo: conteudo.trim() }).select("*, autor:profiles!comentarios_autor_id_fkey(*)").single();
+        const conteudoFinal = conteudo.trim();
+        const { data, error } = await supabase.from("comentarios").insert({ post_id: postId, autor_id: autorId, conteudo: conteudoFinal }).select("*, autor:profiles!comentarios_autor_id_fkey(*)").single();
         if (error) throw new Error(error.message);
-        return mapearComentario(data);
+        const comentario = mapearComentario(data);
+        try {
+          await notificarMencionados(supabase, conteudoFinal, postId, autorId, data.autor);
+        } catch {
+        }
+        return comentario;
+      },
+      /**
+       * FAÇA 1 — exclui um comentário, mas SOMENTE se `autorId` for
+       * realmente o autor dele. A checagem de propriedade é feita na
+       * própria query (.eq('autor_id', autorId)), não apenas escondendo
+       * um botão no frontend — então mesmo que o app/site sofra alguma
+       * adulteração, o Usuário B nunca consegue apagar comentário do A.
+       */
+      async excluirComentario(comentarioId, autorId) {
+        const { error, count } = await supabase.from("comentarios").delete({ count: "exact" }).eq("id", comentarioId).eq("autor_id", autorId);
+        if (error) throw new Error(error.message);
+        if (!count) {
+          throw new Error("N\xE3o foi poss\xEDvel excluir este coment\xE1rio. Voc\xEA s\xF3 pode excluir coment\xE1rios que voc\xEA mesmo escreveu.");
+        }
+      },
+      /**
+       * FAÇA 2 — busca de usuários para a lista de sugestão do "@".
+       * Busca por PREFIXO do username (equivalente ao padrão já usado em
+       * `buscarEmpresas`, em posts.ts, só que por username em vez de nome),
+       * então digitar "@ju" já traz @julia.cristina, @juliana, @jucosta.
+       */
+      async buscarUsuariosParaMencao(termo, usuarioIdAtual) {
+        const busca = termo.trim().toLowerCase();
+        const { data, error } = await supabase.from("profiles").select("id, nome, username, avatar_url").not("username", "is", null).ilike("username", `${busca}%`).order("username", { ascending: true }).limit(8);
+        if (error) throw new Error(error.message);
+        return (data ?? []).filter((linha) => linha.id !== usuarioIdAtual).map((linha) => ({
+          id: linha.id,
+          nome: linha.nome,
+          username: linha.username,
+          avatarUrl: linha.avatar_url
+        }));
       }
     };
   }
