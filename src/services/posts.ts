@@ -98,9 +98,23 @@ export function criarServicoPosts(supabase: ClienteSupabaseMinimo) {
       const conteudo = novoConteudo.trim();
       if (!conteudo) throw new Error('A legenda não pode ficar vazia.');
 
+      // Sempre que o próprio autor edita a legenda, a denúncia volta para o
+      // início da esteira de acompanhamento ("recebida"), pois o conteúdo
+      // mudou e precisa ser reavaliado do zero.
+      //
+      // Essa mudança de status é uma CONSEQUÊNCIA automática da edição da
+      // legenda, não uma alteração manual de status feita pelo autor — por
+      // isso ela é tratada como um caso especial diretamente no banco
+      // (trigger `trg_protect_post_status`, ver migração SQL
+      // `2026xxxx_permitir_reset_status_na_edicao.sql`): o trigger permite
+      // que o próprio autor altere o status PARA 'recebida' quando ele
+      // também está alterando a legenda (`conteudo`) no mesmo UPDATE, mas
+      // continua bloqueando qualquer tentativa de alterar o status sozinho
+      // (sem mexer na legenda) — preservando a regra original que impede o
+      // autor de aprovar/rejeitar a própria denúncia.
       const { data, error } = await supabase
         .from('posts')
-        .update({ conteudo, status: 'em_analise' })
+        .update({ conteudo, status: 'recebida' })
         .eq('id', postId)
         .eq('autor_id', autorId)
         .select(SELECT_POST)
