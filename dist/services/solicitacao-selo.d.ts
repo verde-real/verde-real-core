@@ -69,5 +69,5 @@ export declare function criarServicoSolicitacaoSelo(supabase: ClienteSupabaseSol
      * Ordem: valida → confere regras → envia arquivos → grava a solicitação → grava os documentos.
      * O id é gerado antes para que uma falha no upload não deixe solicitação "aberta" sem documentos.
      */
-    enviarSolicitacao(usuario: Pick<Usuario, 'id' | 'tipo'>, dados: DadosSolicitacaoSelo, arquivos: ArquivoParaEnvio[]): Promise<SolicitacaoSelo>;
+    enviarSolicitacao(usuario: Pick<Usuario, "id" | "tipo">, dados: DadosSolicitacaoSelo, arquivos: ArquivoParaEnvio[]): Promise<SolicitacaoSelo>;
 };
