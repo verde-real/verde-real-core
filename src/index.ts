@@ -1,4 +1,5 @@
 export * from './types/usuario';
+export * from './types/nivel';
 export * from './types/post';
 export * from './types/notificacao';
 export * from './types/solicitacao-selo';

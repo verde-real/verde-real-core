@@ -1,4 +1,5 @@
 import { Usuario } from './usuario';
+import { calcularNivelUsuario } from './nivel';
 
 export type Categoria =
   | 'Desmatamento'
@@ -55,7 +56,5 @@ export interface Post {
 }
 
 export function rotuloConquista(totalDenuncias: number): string {
-  if (totalDenuncias >= 10) return 'Guardião Verde 🌳';
-  if (totalDenuncias >= 3) return 'Vigilante Ambiental 🌿';
-  return 'Iniciante 🌱';
+  return calcularNivelUsuario(totalDenuncias);
 }

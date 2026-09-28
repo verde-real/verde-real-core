@@ -27,6 +27,8 @@ __export(index_exports, {
   ErroSolicitacaoSelo: () => ErroSolicitacaoSelo,
   ICONE_FONTAWESOME_POR_TIPO: () => ICONE_FONTAWESOME_POR_TIPO,
   ICONE_IONICONS_POR_TIPO: () => ICONE_IONICONS_POR_TIPO,
+  LIMITE_NIVEL_EXPLORADOR: () => LIMITE_NIVEL_EXPLORADOR,
+  LIMITE_NIVEL_VIGILANTE_AMBIENTAL: () => LIMITE_NIVEL_VIGILANTE_AMBIENTAL,
   MIMES_DOCUMENTO_PERMITIDOS: () => MIMES_DOCUMENTO_PERMITIDOS,
   MIN_DOCUMENTOS_SOLICITACAO: () => MIN_DOCUMENTOS_SOLICITACAO,
   REGEX_USERNAME: () => REGEX_USERNAME,
@@ -41,6 +43,7 @@ __export(index_exports, {
   TIPOS_EMPRESA: () => TIPOS_EMPRESA,
   UFS_BRASIL: () => UFS_BRASIL,
   apenasDigitos: () => apenasDigitos,
+  calcularNivelUsuario: () => calcularNivelUsuario,
   criarServicoComentarios: () => criarServicoComentarios,
   criarServicoCurtidas: () => criarServicoCurtidas,
   criarServicoNotificacoes: () => criarServicoNotificacoes,
@@ -124,6 +127,16 @@ function validarCadastro(dados) {
   return erros;
 }
 
+// src/types/nivel.ts
+var LIMITE_NIVEL_EXPLORADOR = 6;
+var LIMITE_NIVEL_VIGILANTE_AMBIENTAL = 12;
+function calcularNivelUsuario(totalPosts) {
+  const total = totalPosts ?? 0;
+  if (total > LIMITE_NIVEL_VIGILANTE_AMBIENTAL) return "Vigilante Ambiental";
+  if (total >= LIMITE_NIVEL_EXPLORADOR) return "Explorador";
+  return "Iniciante";
+}
+
 // src/types/post.ts
 var CATEGORIAS = [
   "Desmatamento",
@@ -150,9 +163,7 @@ var STATUS_LABEL = {
   rejeitada: "Rejeitada"
 };
 function rotuloConquista(totalDenuncias) {
-  if (totalDenuncias >= 10) return "Guardi\xE3o Verde \u{1F333}";
-  if (totalDenuncias >= 3) return "Vigilante Ambiental \u{1F33F}";
-  return "Iniciante \u{1F331}";
+  return calcularNivelUsuario(totalDenuncias);
 }
 
 // src/types/notificacao.ts
@@ -665,6 +676,17 @@ function criarServicoPosts(supabase) {
 }
 
 // src/services/seguidores.ts
+function mapearPerfilSeguido(linha) {
+  const perfil = linha?.empresa;
+  if (!perfil) return null;
+  return {
+    id: perfil.id,
+    nome: perfil.nome,
+    username: perfil.username ?? null,
+    avatarUrl: perfil.avatar_url ?? null,
+    tipo: perfil.tipo
+  };
+}
 function criarServicoSeguidores(supabase) {
   return {
     async estaSeguindo(seguidorId, empresaId) {
@@ -689,6 +711,16 @@ function criarServicoSeguidores(supabase) {
       const { count, error } = await supabase.from("seguidores_empresa").select("*", { count: "exact", head: true }).eq("seguidor_id", seguidorId);
       if (error) throw new Error(error.message);
       return count ?? 0;
+    },
+    /**
+     * Lista (perfil básico) de quem `seguidorId` está seguindo.
+     * Mesma tabela `seguidores_empresa` — nenhuma tabela nova.
+     * Ordenação alfabética feita aqui, pois a tabela não tem coluna de data confiável.
+     */
+    async buscarSeguindo(seguidorId) {
+      const { data, error } = await supabase.from("seguidores_empresa").select("empresa:profiles!seguidores_empresa_empresa_id_fkey(id, nome, username, avatar_url, tipo)").eq("seguidor_id", seguidorId);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(mapearPerfilSeguido).filter((p) => p !== null).sort((a, b) => a.nome.localeCompare(b.nome));
     }
   };
 }
@@ -873,6 +905,8 @@ function criarServicoSolicitacaoSelo(supabase) {
   ErroSolicitacaoSelo,
   ICONE_FONTAWESOME_POR_TIPO,
   ICONE_IONICONS_POR_TIPO,
+  LIMITE_NIVEL_EXPLORADOR,
+  LIMITE_NIVEL_VIGILANTE_AMBIENTAL,
   MIMES_DOCUMENTO_PERMITIDOS,
   MIN_DOCUMENTOS_SOLICITACAO,
   REGEX_USERNAME,
@@ -887,6 +921,7 @@ function criarServicoSolicitacaoSelo(supabase) {
   TIPOS_EMPRESA,
   UFS_BRASIL,
   apenasDigitos,
+  calcularNivelUsuario,
   criarServicoComentarios,
   criarServicoCurtidas,
   criarServicoNotificacoes,
