@@ -859,10 +859,7 @@ function criarServicoSolicitacaoSelo(supabase) {
         enviados.push({ arquivo, caminho });
       }
       const { empresa, auditoria, planoPagamento } = dados;
-      const { data, error } = await supabase.from(TABELA_SOLICITACOES_SELO).insert({
-        id: solicitacaoId,
-        empresa_id: usuario.id,
-        status: "enviada",
+      const pDados = {
         cnpj: apenasDigitos(empresa.cnpj),
         razao_social: empresa.razaoSocial.trim(),
         nome_fantasia: empresa.nomeFantasia.trim(),
@@ -880,18 +877,30 @@ function criarServicoSolicitacaoSelo(supabase) {
         metas: auditoria.metas,
         plano: planoPagamento.plano.trim(),
         metodo_pagamento: planoPagamento.metodoPagamento
-      }).select("*").single();
-      if (error) throw new Error(error.message);
-      const linhasDocumentos = enviados.map(({ arquivo, caminho }) => ({
-        solicitacao_id: solicitacaoId,
+      };
+      const pDocumentos = enviados.map(({ arquivo, caminho }) => ({
         tipo: arquivo.tipo,
         nome_arquivo: arquivo.nomeArquivo,
         caminho_storage: caminho,
         mime_type: arquivo.mimeType,
         tamanho_bytes: arquivo.tamanhoBytes
       }));
-      const { error: erroDocs } = await supabase.from(TABELA_DOCUMENTOS_SOLICITACAO).insert(linhasDocumentos);
-      if (erroDocs) throw new Error(erroDocs.message);
+      const { data, error } = await supabase.rpc(
+        "enviar_solicitacao_selo",
+        {
+          p_empresa_id: usuario.id,
+          p_dados: pDados,
+          p_documentos: pDocumentos
+        }
+      );
+      if (error) {
+        await supabase.storage.from(BUCKET_DOCUMENTOS_SELO).remove(enviados.map(({ caminho }) => caminho));
+        throw new Error(error.message);
+      }
+      if (!data) {
+        await supabase.storage.from(BUCKET_DOCUMENTOS_SELO).remove(enviados.map(({ caminho }) => caminho));
+        throw new Error("A solicita\xE7\xE3o foi enviada, mas o Supabase n\xE3o retornou os dados.");
+      }
       return mapearSolicitacaoSelo(data);
     }
   };

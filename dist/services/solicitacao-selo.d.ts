@@ -4,11 +4,17 @@ import { ArquivoDocumentoSelo, DadosSolicitacaoSelo, ErroValidacaoSolicitacao, M
 export declare const TABELA_SOLICITACOES_SELO = "solicitacoes_selo";
 export declare const TABELA_DOCUMENTOS_SOLICITACAO = "solicitacoes_selo_documentos";
 export declare const BUCKET_DOCUMENTOS_SELO = "documentos-selo";
-/** O client precisa expor storage (o client do app e o window.supabase do site expõem). */
+/** O client precisa expor storage e RPC. */
 export interface ClienteSupabaseSolicitacao extends ClienteSupabaseMinimo {
     storage: {
         from: (bucket: string) => any;
     };
+    rpc: (functionName: string, args?: Record<string, unknown>) => Promise<{
+        data: any;
+        error: {
+            message: string;
+        } | null;
+    }>;
 }
 /** Arquivo pronto para enviar: metadados + conteúdo (File/Blob no site, ArrayBuffer/Blob no app). */
 export interface ArquivoParaEnvio extends ArquivoDocumentoSelo {
