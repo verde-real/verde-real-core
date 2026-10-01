@@ -26,9 +26,17 @@ export const TABELA_SOLICITACOES_SELO = 'solicitacoes_selo';
 export const TABELA_DOCUMENTOS_SOLICITACAO = 'solicitacoes_selo_documentos';
 export const BUCKET_DOCUMENTOS_SELO = 'documentos-selo';
 
-/** O client precisa expor storage (o client do app e o window.supabase do site expõem). */
+/** O client precisa expor storage e RPC. */
 export interface ClienteSupabaseSolicitacao extends ClienteSupabaseMinimo {
-  storage: { from: (bucket: string) => any };
+storage: { from: (bucket: string) => any };
+
+rpc: (
+functionName: string,
+args?: Record<string, unknown>
+) => Promise<{
+data: any;
+error: { message: string } | null;
+}>;
 }
 
 /** Arquivo pronto para enviar: metadados + conteúdo (File/Blob no site, ArrayBuffer/Blob no app). */
@@ -225,45 +233,64 @@ export function criarServicoSolicitacaoSelo(supabase: ClienteSupabaseSolicitacao
         enviados.push({ arquivo, caminho });
       }
 
-      const { empresa, auditoria, planoPagamento } = dados;
-      const { data, error } = await supabase
-        .from(TABELA_SOLICITACOES_SELO)
-        .insert({
-          id: solicitacaoId,
-          empresa_id: usuario.id,
-          status: 'enviada',
-          cnpj: apenasDigitos(empresa.cnpj),
-          razao_social: empresa.razaoSocial.trim(),
-          nome_fantasia: empresa.nomeFantasia.trim(),
-          email: empresa.email.trim(),
-          telefone: apenasDigitos(empresa.telefone),
-          cep: apenasDigitos(empresa.cep),
-          endereco: empresa.endereco.trim(),
-          cidade: empresa.cidade.trim(),
-          estado: empresa.estado.trim().toUpperCase(),
-          responsavel_nome: empresa.responsavelNome.trim(),
-          responsavel_cargo: empresa.responsavelCargo.trim(),
-          informacoes_adicionais: empresa.informacoesAdicionais?.trim() || null,
-          data_auditoria: auditoria.dataAuditoria,
-          local_auditoria: auditoria.localAuditoria.trim(),
-          metas: auditoria.metas,
-          plano: planoPagamento.plano.trim(),
-          metodo_pagamento: planoPagamento.metodoPagamento,
-        })
-        .select('*')
-        .single();
-      if (error) throw new Error(error.message);
+            const { empresa, auditoria, planoPagamento } = dados;
 
-      const linhasDocumentos = enviados.map(({ arquivo, caminho }) => ({
-        solicitacao_id: solicitacaoId,
+      const pDados = {
+        cnpj: apenasDigitos(empresa.cnpj),
+        razao_social: empresa.razaoSocial.trim(),
+        nome_fantasia: empresa.nomeFantasia.trim(),
+        email: empresa.email.trim(),
+        telefone: apenasDigitos(empresa.telefone),
+        cep: apenasDigitos(empresa.cep),
+        endereco: empresa.endereco.trim(),
+        cidade: empresa.cidade.trim(),
+        estado: empresa.estado.trim().toUpperCase(),
+        responsavel_nome: empresa.responsavelNome.trim(),
+        responsavel_cargo: empresa.responsavelCargo.trim(),
+        informacoes_adicionais:
+          empresa.informacoesAdicionais?.trim() || null,
+        data_auditoria: auditoria.dataAuditoria,
+        local_auditoria: auditoria.localAuditoria.trim(),
+        metas: auditoria.metas,
+        plano: planoPagamento.plano.trim(),
+        metodo_pagamento: planoPagamento.metodoPagamento,
+      };
+
+      const pDocumentos = enviados.map(({ arquivo, caminho }) => ({
         tipo: arquivo.tipo,
         nome_arquivo: arquivo.nomeArquivo,
         caminho_storage: caminho,
         mime_type: arquivo.mimeType,
         tamanho_bytes: arquivo.tamanhoBytes,
       }));
-      const { error: erroDocs } = await supabase.from(TABELA_DOCUMENTOS_SOLICITACAO).insert(linhasDocumentos);
-      if (erroDocs) throw new Error(erroDocs.message);
+
+      const { data, error } = await supabase.rpc(
+        'enviar_solicitacao_selo',
+        {
+          p_empresa_id: usuario.id,
+          p_dados: pDados,
+          p_documentos: pDocumentos,
+        }
+      );
+
+      if (error) {
+        // Se o RPC falhar, tenta remover os arquivos já enviados
+        // para não deixar arquivos órfãos no Storage.
+        await supabase.storage
+          .from(BUCKET_DOCUMENTOS_SELO)
+          .remove(enviados.map(({ caminho }) => caminho));
+
+        throw new Error(error.message);
+      }
+
+      if (!data) {
+        // Mesmo cuidado caso o RPC não retorne a solicitação.
+        await supabase.storage
+          .from(BUCKET_DOCUMENTOS_SELO)
+          .remove(enviados.map(({ caminho }) => caminho));
+
+        throw new Error('A solicitação foi enviada, mas o Supabase não retornou os dados.');
+      }
 
       return mapearSolicitacaoSelo(data);
     },
