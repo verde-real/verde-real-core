@@ -1,3 +1,5 @@
+import { avaliarSenha, mensagemSenhaInsegura } from '../regras/senha';
+
 export type TipoUsuario = 'cliente' | 'empresa' | 'empresa_selo';
 
 export const TIPOS_EMPRESA: TipoUsuario[] = ['empresa', 'empresa_selo'];
@@ -60,7 +62,6 @@ export interface ErroValidacao {
 }
 
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SENHA_MIN_CARACTERES = 6;
 
 /**
  * Valida os dados de cadastro. Retorna um array vazio se estiver tudo ok,
@@ -84,8 +85,11 @@ export function validarCadastro(dados: DadosCadastro): ErroValidacao[] {
 
   if (!dados.senha) {
     erros.push({ campo: 'senha', mensagem: 'Informe uma senha.' });
-  } else if (dados.senha.length < SENHA_MIN_CARACTERES) {
-    erros.push({ campo: 'senha', mensagem: `A senha precisa ter pelo menos ${SENHA_MIN_CARACTERES} caracteres.` });
+  } else {
+    const avaliacao = avaliarSenha(dados.senha, { nome: dados.nome, email: dados.email });
+    if (!avaliacao.valida) {
+      erros.push({ campo: 'senha', mensagem: mensagemSenhaInsegura(avaliacao) });
+    }
   }
 
   if (dados.senha !== dados.confirmarSenha) {

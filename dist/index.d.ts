@@ -10,3 +10,5 @@ export * from './services/posts';
 export * from './services/seguidores';
 export * from './services/ranking';
 export * from './services/solicitacao-selo';
+export * from './regras/senha';
+export * from './constantes/termos';

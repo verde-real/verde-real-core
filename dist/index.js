@@ -23,6 +23,8 @@ __export(index_exports, {
   BUCKET_DOCUMENTOS_SELO: () => BUCKET_DOCUMENTOS_SELO,
   CATEGORIAS: () => CATEGORIAS,
   CORES_CATEGORIA: () => CORES_CATEGORIA,
+  DATA_ATUALIZACAO_TERMOS: () => DATA_ATUALIZACAO_TERMOS,
+  EMAIL_CONTATO_LEGAL: () => EMAIL_CONTATO_LEGAL,
   EXTENSOES_DOCUMENTO_PERMITIDAS: () => EXTENSOES_DOCUMENTO_PERMITIDAS,
   ErroSolicitacaoSelo: () => ErroSolicitacaoSelo,
   ICONE_FONTAWESOME_POR_TIPO: () => ICONE_FONTAWESOME_POR_TIPO,
@@ -31,18 +33,24 @@ __export(index_exports, {
   LIMITE_NIVEL_VIGILANTE_AMBIENTAL: () => LIMITE_NIVEL_VIGILANTE_AMBIENTAL,
   MIMES_DOCUMENTO_PERMITIDOS: () => MIMES_DOCUMENTO_PERMITIDOS,
   MIN_DOCUMENTOS_SOLICITACAO: () => MIN_DOCUMENTOS_SOLICITACAO,
+  POLITICA_PRIVACIDADE: () => POLITICA_PRIVACIDADE,
   REGEX_USERNAME: () => REGEX_USERNAME,
   ROTULO_METODO_PAGAMENTO: () => ROTULO_METODO_PAGAMENTO,
   ROTULO_STATUS_SOLICITACAO: () => ROTULO_STATUS_SOLICITACAO,
   ROTULO_TIPO_DOCUMENTO: () => ROTULO_TIPO_DOCUMENTO,
+  SENHA_MIN_CARACTERES: () => SENHA_MIN_CARACTERES,
+  SENHA_RECOMENDADA_CARACTERES: () => SENHA_RECOMENDADA_CARACTERES,
   STATUS_LABEL: () => STATUS_LABEL,
   STATUS_SOLICITACAO_ABERTOS: () => STATUS_SOLICITACAO_ABERTOS,
   TABELA_DOCUMENTOS_SOLICITACAO: () => TABELA_DOCUMENTOS_SOLICITACAO,
   TABELA_SOLICITACOES_SELO: () => TABELA_SOLICITACOES_SELO,
   TAMANHO_MAX_DOCUMENTO_BYTES: () => TAMANHO_MAX_DOCUMENTO_BYTES,
+  TERMOS_DE_USO: () => TERMOS_DE_USO,
   TIPOS_EMPRESA: () => TIPOS_EMPRESA,
   UFS_BRASIL: () => UFS_BRASIL,
+  VERSAO_TERMOS: () => VERSAO_TERMOS,
   apenasDigitos: () => apenasDigitos,
+  avaliarSenha: () => avaliarSenha,
   calcularNivelUsuario: () => calcularNivelUsuario,
   criarServicoComentarios: () => criarServicoComentarios,
   criarServicoCurtidas: () => criarServicoCurtidas,
@@ -58,6 +66,7 @@ __export(index_exports, {
   mapearDocumentoSolicitacao: () => mapearDocumentoSolicitacao,
   mapearNotificacao: () => mapearNotificacao,
   mapearSolicitacaoSelo: () => mapearSolicitacaoSelo,
+  mensagemSenhaInsegura: () => mensagemSenhaInsegura,
   podeAcessarSolicitacaoSelo: () => podeAcessarSolicitacaoSelo,
   precisaEscolherUsername: () => precisaEscolherUsername,
   rotuloConquista: () => rotuloConquista,
@@ -74,6 +83,99 @@ __export(index_exports, {
   validarSolicitacaoSelo: () => validarSolicitacaoSelo
 });
 module.exports = __toCommonJS(index_exports);
+
+// src/regras/senha.ts
+var SENHA_MIN_CARACTERES = 8;
+var SENHA_RECOMENDADA_CARACTERES = 12;
+var SENHAS_COMUNS = [
+  "12345678",
+  "123456789",
+  "1234567890",
+  "87654321",
+  "11111111",
+  "00000000",
+  "password",
+  "password1",
+  "qwerty123",
+  "qwertyui",
+  "abc12345",
+  "abcd1234",
+  "senha123",
+  "senha1234",
+  "senha@123",
+  "mudar123",
+  "admin123",
+  "brasil123",
+  "iloveyou",
+  "letmein1"
+];
+function normalizar(texto) {
+  return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+function trechosPessoais(contexto) {
+  const trechos = [];
+  const adicionar = (t) => {
+    if (t.length >= 3) trechos.push(t);
+  };
+  if (contexto.nome) {
+    normalizar(contexto.nome).split(/[^a-z0-9]+/).forEach(adicionar);
+  }
+  if (contexto.email) {
+    const local = normalizar(contexto.email.split("@")[0]);
+    local.split(/[^a-z0-9]+/).forEach(adicionar);
+    adicionar(local.replace(/[^a-z0-9]/g, ""));
+  }
+  return trechos;
+}
+function avaliarSenha(senha, contexto = {}) {
+  const vazia = senha.length === 0;
+  const normalizada = normalizar(senha);
+  const temDadosPessoais = trechosPessoais(contexto).some((t) => normalizada.includes(t));
+  const ehComum = SENHAS_COMUNS.includes(normalizada) || normalizada.includes("verdereal") || /^(.)\1+$/.test(normalizada);
+  const requisitos = [
+    {
+      id: "tamanho",
+      texto: `Pelo menos ${SENHA_MIN_CARACTERES} caracteres`,
+      atendido: senha.length >= SENHA_MIN_CARACTERES,
+      obrigatorio: true
+    },
+    { id: "minuscula", texto: "Uma letra min\xFAscula", atendido: /[a-zß-öø-ÿ]/.test(senha), obrigatorio: true },
+    { id: "maiuscula", texto: "Uma letra mai\xFAscula", atendido: /[A-ZÀ-ÖØ-Þ]/.test(senha), obrigatorio: true },
+    { id: "numero", texto: "Um n\xFAmero", atendido: /[0-9]/.test(senha), obrigatorio: true },
+    {
+      id: "simbolo",
+      texto: "Um s\xEDmbolo (ex.: ! @ # $ %)",
+      atendido: /[^A-Za-z0-9À-ÿ\s]/.test(senha),
+      obrigatorio: true
+    },
+    {
+      id: "dados-pessoais",
+      texto: "N\xE3o conter seu nome ou e-mail",
+      atendido: !vazia && !temDadosPessoais,
+      obrigatorio: true
+    },
+    { id: "comum", texto: "N\xE3o ser uma senha muito comum", atendido: !vazia && !ehComum, obrigatorio: true },
+    {
+      id: "recomendado",
+      texto: `Recomendado: ${SENHA_RECOMENDADA_CARACTERES} ou mais caracteres`,
+      atendido: senha.length >= SENHA_RECOMENDADA_CARACTERES,
+      obrigatorio: false
+    }
+  ];
+  const faltando = requisitos.filter((r) => r.obrigatorio && !r.atendido);
+  const valida = !vazia && faltando.length === 0;
+  let nivel = 0;
+  if (!vazia) {
+    if (!valida) nivel = 1;
+    else nivel = senha.length >= SENHA_RECOMENDADA_CARACTERES ? 3 : 2;
+  }
+  const rotulos = ["", "Fraca", "M\xE9dia", "Forte"];
+  return { requisitos, nivel, rotulo: rotulos[nivel], valida, faltando };
+}
+function mensagemSenhaInsegura(avaliacao) {
+  const itens = avaliacao.faltando.map((r) => r.texto.toLowerCase()).join(", ");
+  return `Senha fraca. Falta: ${itens}.`;
+}
 
 // src/types/usuario.ts
 var TIPOS_EMPRESA = ["empresa", "empresa_selo"];
@@ -97,7 +199,6 @@ function temSeloAtivo(usuario) {
   return !!usuario && usuario.tipo === "empresa_selo";
 }
 var REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-var SENHA_MIN_CARACTERES = 6;
 function validarCadastro(dados) {
   const erros = [];
   if (!dados.nome || !dados.nome.trim()) {
@@ -112,8 +213,11 @@ function validarCadastro(dados) {
   }
   if (!dados.senha) {
     erros.push({ campo: "senha", mensagem: "Informe uma senha." });
-  } else if (dados.senha.length < SENHA_MIN_CARACTERES) {
-    erros.push({ campo: "senha", mensagem: `A senha precisa ter pelo menos ${SENHA_MIN_CARACTERES} caracteres.` });
+  } else {
+    const avaliacao = avaliarSenha(dados.senha, { nome: dados.nome, email: dados.email });
+    if (!avaliacao.valida) {
+      erros.push({ campo: "senha", mensagem: mensagemSenhaInsegura(avaliacao) });
+    }
   }
   if (dados.senha !== dados.confirmarSenha) {
     erros.push({ campo: "confirmarSenha", mensagem: "As senhas n\xE3o coincidem." });
@@ -905,11 +1009,118 @@ function criarServicoSolicitacaoSelo(supabase) {
     }
   };
 }
+
+// src/constantes/termos.ts
+var VERSAO_TERMOS = "2026-10-01";
+var DATA_ATUALIZACAO_TERMOS = "1 de outubro de 2026";
+var EMAIL_CONTATO_LEGAL = "contatoverdereal@gmail.com";
+var TERMOS_DE_USO = [
+  {
+    id: "sobre",
+    titulo: "1. O que \xE9 o Verde Real",
+    paragrafos: [
+      "O Verde Real \xE9 uma rede social de transpar\xEAncia ambiental. Nela, pessoas podem registrar den\xFAncias sobre pr\xE1ticas que parecem greenwashing (propaganda ambiental enganosa), e empresas podem se apresentar e solicitar o Selo Verde."
+    ]
+  },
+  {
+    id: "conta",
+    titulo: "2. Conta e cadastro",
+    paragrafos: [
+      "Para publicar e interagir voc\xEA precisa criar uma conta como Cliente ou como Empresa. Voc\xEA se compromete a informar dados verdadeiros e a manter seu e-mail e sua senha em sigilo.",
+      "Voc\xEA declara ter capacidade legal para aceitar estes termos. Voc\xEA \xE9 respons\xE1vel pelas atividades feitas na sua conta."
+    ]
+  },
+  {
+    id: "denuncias",
+    titulo: "3. Den\xFAncias e conte\xFAdo publicado",
+    paragrafos: [
+      "Den\xFAncias devem ser feitas de boa-f\xE9, baseadas em fatos e, sempre que poss\xEDvel, acompanhadas de provas (imagens, links, documentos).",
+      "N\xE3o \xE9 permitido publicar conte\xFAdo falso, ofensivo, discriminat\xF3rio ou difamat\xF3rio, nem expor dados pessoais de terceiros. Quem publica \xE9 o respons\xE1vel pelo que publica.",
+      "O Verde Real pode ocultar ou remover conte\xFAdo que viole estes termos ou a lei."
+    ]
+  },
+  {
+    id: "empresas",
+    titulo: "4. Empresas e Selo Verde",
+    paragrafos: [
+      "Empresas devem fornecer informa\xE7\xF5es verdadeiras ao solicitar o Selo Verde. O selo \xE9 concedido ap\xF3s an\xE1lise e pode ser retirado se as informa\xE7\xF5es se mostrarem falsas ou se as condi\xE7\xF5es deixarem de ser cumpridas.",
+      "O Selo Verde n\xE3o \xE9 uma certifica\xE7\xE3o oficial nem garantia legal de conformidade ambiental."
+    ]
+  },
+  {
+    id: "transparencia",
+    titulo: "5. Modera\xE7\xE3o e transpar\xEAncia",
+    paragrafos: [
+      "Empresas citadas em den\xFAncias podem responder dentro da plataforma. Se voc\xEA acredita que um conte\xFAdo ou uma decis\xE3o de modera\xE7\xE3o foi indevida, pode pedir revis\xE3o pelo e-mail de contato abaixo."
+    ]
+  },
+  {
+    id: "responsabilidade",
+    titulo: "6. Limites de responsabilidade",
+    paragrafos: [
+      "O conte\xFAdo publicado pelos usu\xE1rios representa a opini\xE3o de quem o publicou, e n\xE3o do Verde Real. Fazemos o poss\xEDvel para manter o servi\xE7o dispon\xEDvel, mas ele pode sofrer interrup\xE7\xF5es."
+    ]
+  },
+  {
+    id: "alteracoes",
+    titulo: "7. Altera\xE7\xF5es e contato",
+    paragrafos: [
+      "Podemos atualizar estes termos. Mudan\xE7as relevantes ser\xE3o avisadas na plataforma. D\xFAvidas: " + EMAIL_CONTATO_LEGAL + "."
+    ]
+  }
+];
+var POLITICA_PRIVACIDADE = [
+  {
+    id: "dados",
+    titulo: "1. Quais dados coletamos",
+    paragrafos: [
+      "Dados de cadastro: nome ou raz\xE3o social, e-mail, tipo de perfil (Cliente ou Empresa) e nome de usu\xE1rio (@).",
+      "Dados que voc\xEA cria: foto de perfil (se enviar), den\xFAncias, imagens, coment\xE1rios, curtidas e notifica\xE7\xF5es."
+    ]
+  },
+  {
+    id: "uso",
+    titulo: "2. Para que usamos",
+    paragrafos: [
+      "Para criar e proteger sua conta, permitir o login, exibir suas publica\xE7\xF5es, enviar notifica\xE7\xF5es da plataforma, moderar conte\xFAdo e cumprir obriga\xE7\xF5es legais."
+    ]
+  },
+  {
+    id: "publico",
+    titulo: "3. O que \xE9 p\xFAblico",
+    paragrafos: [
+      "Seu nome, nome de usu\xE1rio, foto e o conte\xFAdo que voc\xEA publica podem ser vistos por outros usu\xE1rios. Sua senha nunca \xE9 exibida nem armazenada em texto leg\xEDvel."
+    ]
+  },
+  {
+    id: "compartilhamento",
+    titulo: "4. Compartilhamento",
+    paragrafos: [
+      "N\xE3o vendemos seus dados. Usamos provedores de infraestrutura (banco de dados, autentica\xE7\xE3o e armazenamento) que tratam os dados apenas para o funcionamento do servi\xE7o."
+    ]
+  },
+  {
+    id: "direitos",
+    titulo: "5. Seus direitos (LGPD)",
+    paragrafos: [
+      "Voc\xEA pode pedir acesso, corre\xE7\xE3o, exclus\xE3o, portabilidade dos seus dados e revogar consentimentos. Para isso, escreva para " + EMAIL_CONTATO_LEGAL + "."
+    ]
+  },
+  {
+    id: "seguranca",
+    titulo: "6. Seguran\xE7a e guarda dos dados",
+    paragrafos: [
+      "Adotamos medidas t\xE9cnicas para proteger seus dados e os mantemos enquanto sua conta existir ou enquanto a lei exigir."
+    ]
+  }
+];
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   BUCKET_DOCUMENTOS_SELO,
   CATEGORIAS,
   CORES_CATEGORIA,
+  DATA_ATUALIZACAO_TERMOS,
+  EMAIL_CONTATO_LEGAL,
   EXTENSOES_DOCUMENTO_PERMITIDAS,
   ErroSolicitacaoSelo,
   ICONE_FONTAWESOME_POR_TIPO,
@@ -918,18 +1129,24 @@ function criarServicoSolicitacaoSelo(supabase) {
   LIMITE_NIVEL_VIGILANTE_AMBIENTAL,
   MIMES_DOCUMENTO_PERMITIDOS,
   MIN_DOCUMENTOS_SOLICITACAO,
+  POLITICA_PRIVACIDADE,
   REGEX_USERNAME,
   ROTULO_METODO_PAGAMENTO,
   ROTULO_STATUS_SOLICITACAO,
   ROTULO_TIPO_DOCUMENTO,
+  SENHA_MIN_CARACTERES,
+  SENHA_RECOMENDADA_CARACTERES,
   STATUS_LABEL,
   STATUS_SOLICITACAO_ABERTOS,
   TABELA_DOCUMENTOS_SOLICITACAO,
   TABELA_SOLICITACOES_SELO,
   TAMANHO_MAX_DOCUMENTO_BYTES,
+  TERMOS_DE_USO,
   TIPOS_EMPRESA,
   UFS_BRASIL,
+  VERSAO_TERMOS,
   apenasDigitos,
+  avaliarSenha,
   calcularNivelUsuario,
   criarServicoComentarios,
   criarServicoCurtidas,
@@ -945,6 +1162,7 @@ function criarServicoSolicitacaoSelo(supabase) {
   mapearDocumentoSolicitacao,
   mapearNotificacao,
   mapearSolicitacaoSelo,
+  mensagemSenhaInsegura,
   podeAcessarSolicitacaoSelo,
   precisaEscolherUsername,
   rotuloConquista,
