@@ -1,11 +1,11 @@
 export declare const SENHA_MIN_CARACTERES = 8;
-export declare const SENHA_RECOMENDADA_CARACTERES = 12;
+/** Mantido só por compatibilidade com quem já chama avaliarSenha(senha, { nome, email }). Hoje é ignorado. */
 export interface ContextoSenha {
     nome?: string;
     email?: string;
 }
 export interface RequisitoSenha {
-    id: 'tamanho' | 'minuscula' | 'maiuscula' | 'numero' | 'simbolo' | 'dados-pessoais' | 'comum' | 'recomendado';
+    id: 'tamanho' | 'minuscula' | 'maiuscula' | 'numero' | 'simbolo';
     texto: string;
     atendido: boolean;
     obrigatorio: boolean;
@@ -18,6 +18,6 @@ export interface AvaliacaoSenha {
     valida: boolean;
     faltando: RequisitoSenha[];
 }
-export declare function avaliarSenha(senha: string, contexto?: ContextoSenha): AvaliacaoSenha;
+export declare function avaliarSenha(senha: string, _contexto?: ContextoSenha): AvaliacaoSenha;
 /** Mensagem única de erro, igual no site e no app. */
 export declare function mensagemSenhaInsegura(avaliacao: AvaliacaoSenha): string;

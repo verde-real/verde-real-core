@@ -2,15 +2,15 @@
 // Regra única de senha — site e app usam a MESMA avaliação.
 // ============================================================
 export const SENHA_MIN_CARACTERES = 8;
-export const SENHA_RECOMENDADA_CARACTERES = 12;
 
+/** Mantido só por compatibilidade com quem já chama avaliarSenha(senha, { nome, email }). Hoje é ignorado. */
 export interface ContextoSenha {
   nome?: string;
   email?: string;
 }
 
 export interface RequisitoSenha {
-  id: 'tamanho' | 'minuscula' | 'maiuscula' | 'numero' | 'simbolo' | 'dados-pessoais' | 'comum' | 'recomendado';
+  id: 'tamanho' | 'minuscula' | 'maiuscula' | 'numero' | 'simbolo';
   texto: string;
   atendido: boolean;
   obrigatorio: boolean;
@@ -24,45 +24,11 @@ export interface AvaliacaoSenha {
   nivel: NivelSenha;
   rotulo: string;
   valida: boolean;
-  faltando: RequisitoSenha[]; // só os obrigatórios que faltam
+  faltando: RequisitoSenha[]; // requisitos que ainda não foram atendidos
 }
 
-const SENHAS_COMUNS = [
-  '12345678', '123456789', '1234567890', '87654321', '11111111', '00000000',
-  'password', 'password1', 'qwerty123', 'qwertyui', 'abc12345', 'abcd1234',
-  'senha123', 'senha1234', 'senha@123', 'mudar123', 'admin123', 'brasil123',
-  'iloveyou', 'letmein1',
-];
-
-function normalizar(texto: string): string {
-  return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function trechosPessoais(contexto: ContextoSenha): string[] {
-  const trechos: string[] = [];
-  const adicionar = (t: string) => {
-    if (t.length >= 3) trechos.push(t);
-  };
-  if (contexto.nome) {
-    normalizar(contexto.nome).split(/[^a-z0-9]+/).forEach(adicionar);
-  }
-  if (contexto.email) {
-    const local = normalizar(contexto.email.split('@')[0]);
-    local.split(/[^a-z0-9]+/).forEach(adicionar);
-    adicionar(local.replace(/[^a-z0-9]/g, ''));
-  }
-  return trechos;
-}
-
-export function avaliarSenha(senha: string, contexto: ContextoSenha = {}): AvaliacaoSenha {
+export function avaliarSenha(senha: string, _contexto: ContextoSenha = {}): AvaliacaoSenha {
   const vazia = senha.length === 0;
-  const normalizada = normalizar(senha);
-
-  const temDadosPessoais = trechosPessoais(contexto).some((t) => normalizada.includes(t));
-  const ehComum =
-    SENHAS_COMUNS.includes(normalizada) ||
-    normalizada.includes('verdereal') ||
-    /^(.)\1+$/.test(normalizada);
 
   const requisitos: RequisitoSenha[] = [
     {
@@ -80,28 +46,19 @@ export function avaliarSenha(senha: string, contexto: ContextoSenha = {}): Avali
       atendido: /[^A-Za-z0-9À-ÿ\s]/.test(senha),
       obrigatorio: true,
     },
-    {
-      id: 'dados-pessoais',
-      texto: 'Não conter seu nome ou e-mail',
-      atendido: !vazia && !temDadosPessoais,
-      obrigatorio: true,
-    },
-    { id: 'comum', texto: 'Não ser uma senha muito comum', atendido: !vazia && !ehComum, obrigatorio: true },
-    {
-      id: 'recomendado',
-      texto: `Recomendado: ${SENHA_RECOMENDADA_CARACTERES} ou mais caracteres`,
-      atendido: senha.length >= SENHA_RECOMENDADA_CARACTERES,
-      obrigatorio: false,
-    },
   ];
 
-  const faltando = requisitos.filter((r) => r.obrigatorio && !r.atendido);
+  const faltando = requisitos.filter((r) => !r.atendido);
   const valida = !vazia && faltando.length === 0;
 
+  // Nível pelas MESMAS condições (5 itens):
+  //   0 = vazia | 1 (vermelho) = até 2 atendidos | 2 (amarelo) = 3 ou 4 | 3 (verde) = todos
+  const atendidos = requisitos.length - faltando.length;
   let nivel: NivelSenha = 0;
   if (!vazia) {
-    if (!valida) nivel = 1;
-    else nivel = senha.length >= SENHA_RECOMENDADA_CARACTERES ? 3 : 2;
+    if (valida) nivel = 3;
+    else if (atendidos >= 3) nivel = 2;
+    else nivel = 1;
   }
 
   const rotulos = ['', 'Fraca', 'Média', 'Forte'];
