@@ -1,6 +1,6 @@
 import { avaliarSenha, mensagemSenhaInsegura } from '../regras/senha';
 
-export type TipoUsuario = 'cliente' | 'empresa' | 'empresa_selo';
+export type TipoUsuario = 'cliente' | 'empresa' | 'empresa_selo' | 'admin';
 
 export const TIPOS_EMPRESA: TipoUsuario[] = ['empresa', 'empresa_selo'];
 
@@ -33,6 +33,10 @@ export function precisaEscolherUsername(usuario: Pick<Usuario, 'username'> | nul
 
 export function ehEmpresa(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean {
   return !!usuario && (usuario.tipo === 'empresa' || usuario.tipo === 'empresa_selo');
+}
+
+export function ehAdmin(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean {
+  return !!usuario && usuario.tipo === 'admin';
 }
 
 export function ehCliente(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean {
