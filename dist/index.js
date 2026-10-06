@@ -58,6 +58,7 @@ __export(index_exports, {
   criarServicoRanking: () => criarServicoRanking,
   criarServicoSeguidores: () => criarServicoSeguidores,
   criarServicoSolicitacaoSelo: () => criarServicoSolicitacaoSelo,
+  ehAdmin: () => ehAdmin,
   ehCliente: () => ehCliente,
   ehEmpresa: () => ehEmpresa,
   formatarCNPJ: () => formatarCNPJ,
@@ -135,6 +136,9 @@ function precisaEscolherUsername(usuario) {
 }
 function ehEmpresa(usuario) {
   return !!usuario && (usuario.tipo === "empresa" || usuario.tipo === "empresa_selo");
+}
+function ehAdmin(usuario) {
+  return !!usuario && usuario.tipo === "admin";
 }
 function ehCliente(usuario) {
   return !!usuario && usuario.tipo === "cliente";
@@ -535,7 +539,7 @@ async function notificarMencionados(supabase, conteudo, postId, autorId, autorLi
   const { data: perfis, error: erroBusca } = await supabase.from("profiles").select("id, username").in("username", usernames);
   if (erroBusca) throw new Error(erroBusca.message);
   if (!perfis || perfis.length === 0) return;
-  const nomeDoAutor = autorLinha?.username ? `@${autorLinha.username}` : autorLinha?.nome ?? "Algu\xE9m";
+  const nomeDoAutor = autorLinha?.nome ?? (autorLinha?.username ? `@${autorLinha.username}` : "Algu\xE9m");
   const idsJaProcessados = /* @__PURE__ */ new Set();
   const linhasNovas = [];
   for (const perfil of perfis) {
@@ -545,7 +549,7 @@ async function notificarMencionados(supabase, conteudo, postId, autorId, autorLi
     linhasNovas.push({
       destinatario_id: perfil.id,
       tipo: "comentario",
-      mensagem: `${nomeDoAutor} mencionou voc\xEA em um coment\xE1rio.`,
+      mensagem: `${nomeDoAutor} marcou voc\xEA em um coment\xE1rio.`,
       post_id: postId,
       ator_id: autorId,
       lida: false
@@ -735,7 +739,32 @@ function mapearPerfilSeguido(linha) {
     tipo: perfil.tipo
   };
 }
-function criarServicoSeguidores(supabase) {
+async function jaNotificadoPeloBanco(supabase, seguidorId, seguidoId) {
+  try {
+    const { data, error } = await supabase.from("seguidores").select("id").eq("seguidor_id", seguidorId).eq("seguido_id", seguidoId).maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+async function notificarNovoSeguidor(supabase, seguidorId, seguidoId) {
+  if (seguidorId === seguidoId) return;
+  if (await jaNotificadoPeloBanco(supabase, seguidorId, seguidoId)) return;
+  const { data: perfil, error: erroPerfil } = await supabase.from("profiles").select("nome, username").eq("id", seguidorId).maybeSingle();
+  if (erroPerfil) throw new Error(erroPerfil.message);
+  const nome = perfil?.nome ?? (perfil?.username ? `@${perfil.username}` : "Algu\xE9m");
+  const { error } = await supabase.from("notificacoes").insert({
+    destinatario_id: seguidoId,
+    tipo: "seguidor",
+    mensagem: `${nome} come\xE7ou a seguir voc\xEA`,
+    ator_id: seguidorId,
+    lida: false
+  });
+  if (error) throw new Error(error.message);
+}
+function criarServicoSeguidores(supabase, opcoes = {}) {
+  const { notificarNovoSeguidor: deveNotificar = true } = opcoes;
   return {
     async estaSeguindo(seguidorId, empresaId) {
       const { data, error } = await supabase.from("seguidores_empresa").select("id").eq("seguidor_id", seguidorId).eq("empresa_id", empresaId).maybeSingle();
@@ -745,6 +774,12 @@ function criarServicoSeguidores(supabase) {
     async seguirEmpresa(seguidorId, empresaId) {
       const { error } = await supabase.from("seguidores_empresa").insert({ seguidor_id: seguidorId, empresa_id: empresaId });
       if (error) throw new Error(error.message);
+      if (deveNotificar) {
+        try {
+          await notificarNovoSeguidor(supabase, seguidorId, empresaId);
+        } catch {
+        }
+      }
     },
     async deixarDeSeguir(seguidorId, empresaId) {
       const { error } = await supabase.from("seguidores_empresa").delete().eq("seguidor_id", seguidorId).eq("empresa_id", empresaId);
@@ -760,11 +795,6 @@ function criarServicoSeguidores(supabase) {
       if (error) throw new Error(error.message);
       return count ?? 0;
     },
-    /**
-     * Lista (perfil básico) de quem `seguidorId` está seguindo.
-     * Mesma tabela `seguidores_empresa` — nenhuma tabela nova.
-     * Ordenação alfabética feita aqui, pois a tabela não tem coluna de data confiável.
-     */
     async buscarSeguindo(seguidorId) {
       const { data, error } = await supabase.from("seguidores_empresa").select("empresa:profiles!seguidores_empresa_empresa_id_fkey(id, nome, username, avatar_url, tipo)").eq("seguidor_id", seguidorId);
       if (error) throw new Error(error.message);
@@ -1098,6 +1128,7 @@ var POLITICA_PRIVACIDADE = [
   criarServicoRanking,
   criarServicoSeguidores,
   criarServicoSolicitacaoSelo,
+  ehAdmin,
   ehCliente,
   ehEmpresa,
   formatarCNPJ,

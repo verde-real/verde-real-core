@@ -74,7 +74,7 @@ async function notificarMencionados(
   if (erroBusca) throw new Error(erroBusca.message);
   if (!perfis || perfis.length === 0) return;
 
-  const nomeDoAutor = autorLinha?.username ? `@${autorLinha.username}` : autorLinha?.nome ?? 'Alguém';
+  const nomeDoAutor = autorLinha?.nome ?? (autorLinha?.username ? `@${autorLinha.username}` : 'Alguém');
 
   // Evita: (a) notificar a si mesmo ao se automencionar, (b) notificação
   // duplicada quando a mesma pessoa é mencionada mais de uma vez no texto.
@@ -87,7 +87,7 @@ async function notificarMencionados(
     linhasNovas.push({
       destinatario_id: perfil.id,
       tipo: 'comentario',
-      mensagem: `${nomeDoAutor} mencionou você em um comentário.`,
+      mensagem: `${nomeDoAutor} marcou você em um comentário.`,
       post_id: postId,
       ator_id: autorId,
       lida: false,

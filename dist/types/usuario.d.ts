@@ -1,4 +1,4 @@
-export type TipoUsuario = 'cliente' | 'empresa' | 'empresa_selo';
+export type TipoUsuario = 'cliente' | 'empresa' | 'empresa_selo' | 'admin';
 export declare const TIPOS_EMPRESA: TipoUsuario[];
 export interface Usuario {
     id: string;
@@ -12,6 +12,7 @@ export declare const REGEX_USERNAME: RegExp;
 export declare function usernameValido(username: string | null | undefined): boolean;
 export declare function precisaEscolherUsername(usuario: Pick<Usuario, 'username'> | null | undefined): boolean;
 export declare function ehEmpresa(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean;
+export declare function ehAdmin(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean;
 export declare function ehCliente(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean;
 export declare function temSeloAtivo(usuario: Pick<Usuario, 'tipo'> | null | undefined): boolean;
 export interface DadosCadastro {
