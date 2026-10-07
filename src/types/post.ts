@@ -44,6 +44,10 @@ export interface Post {
   conteudo: string;
   categoria: Categoria;
   status: StatusDenuncia;
+  statusModeracao?: 'pendente' | 'aprovado' | 'rejeitado';
+  motivoModeracao?: string | null;
+  moderadoPor?: string | null;
+  moderadoEm?: string | null;
   midiaUrl?: string | null;
   tipoMidia?: 'imagem' | 'video' | null;
   latitude?: number | null;
