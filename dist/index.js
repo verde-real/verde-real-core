@@ -674,7 +674,7 @@ function criarServicoPosts(supabase) {
     async atualizarPost(postId, autorId, novoConteudo) {
       const conteudo = novoConteudo.trim();
       if (!conteudo) throw new Error("A legenda n\xE3o pode ficar vazia.");
-      const { data, error } = await supabase.from("posts").update({ conteudo, status: "recebida" }).eq("id", postId).eq("autor_id", autorId).select(SELECT_POST).single();
+      const { data, error } = await supabase.from("posts").update({ conteudo }).eq("id", postId).eq("autor_id", autorId).select(SELECT_POST).single();
       if (error) throw new Error(error.message);
       if (!data) throw new Error("N\xE3o foi poss\xEDvel atualizar esta publica\xE7\xE3o.");
       const idsCurtidos = await idsCurtidosDoUsuario(autorId);
