@@ -56,6 +56,7 @@ __export(index_exports, {
   criarServicoCurtidas: () => criarServicoCurtidas,
   criarServicoNotificacoes: () => criarServicoNotificacoes,
   criarServicoPosts: () => criarServicoPosts,
+  criarServicoPostsSalvos: () => criarServicoPostsSalvos,
   criarServicoRanking: () => criarServicoRanking,
   criarServicoSeguidores: () => criarServicoSeguidores,
   criarServicoSolicitacaoSelo: () => criarServicoSolicitacaoSelo,
@@ -714,6 +715,24 @@ function criarServicoPosts(supabase) {
   };
 }
 
+// src/services/posts-salvos.ts
+function criarServicoPostsSalvos(supabase) {
+  return {
+    /** IDs dos posts que o usuário logado salvou (usuário é sempre auth.uid(), nunca um parâmetro). */
+    async idsSalvos() {
+      const { data, error } = await supabase.rpc("listar_ids_posts_salvos");
+      if (error) return /* @__PURE__ */ new Set();
+      return new Set((data ?? []).map((linha) => linha.post_id));
+    },
+    /** Alterna salvo/não-salvo. Retorna o novo estado (true = ficou salvo). */
+    async alternar(postId) {
+      const { data, error } = await supabase.rpc("alternar_post_salvo", { p_post_id: postId });
+      if (error) throw new Error(error.message);
+      return data === true;
+    }
+  };
+}
+
 // src/services/seguidores.ts
 function mapearPerfilSeguido(linha) {
   const perfil = linha?.empresa;
@@ -1130,6 +1149,7 @@ var POLITICA_PRIVACIDADE = [
   criarServicoCurtidas,
   criarServicoNotificacoes,
   criarServicoPosts,
+  criarServicoPostsSalvos,
   criarServicoRanking,
   criarServicoSeguidores,
   criarServicoSolicitacaoSelo,

@@ -7,6 +7,7 @@ export * from './services/notificacoes';
 export * from './services/curtidas';
 export * from './services/comentarios';
 export * from './services/posts';
+export * from './services/posts-salvos';
 export * from './services/seguidores';
 export * from './services/ranking';
 export * from './services/solicitacao-selo';
