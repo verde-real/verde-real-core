@@ -52,6 +52,7 @@ var VerdeRealCore = (() => {
     apenasDigitos: () => apenasDigitos,
     avaliarSenha: () => avaliarSenha,
     calcularNivelUsuario: () => calcularNivelUsuario,
+    criarServicoAdmin: () => criarServicoAdmin,
     criarServicoComentarios: () => criarServicoComentarios,
     criarServicoCurtidas: () => criarServicoCurtidas,
     criarServicoNotificacoes: () => criarServicoNotificacoes,
@@ -984,6 +985,30 @@ var VerdeRealCore = (() => {
           throw new Error("A solicita\xE7\xE3o foi enviada, mas o Supabase n\xE3o retornou os dados.");
         }
         return mapearSolicitacaoSelo(data);
+      }
+    };
+  }
+
+  // src/services/admin.ts
+  function criarServicoAdmin(supabase) {
+    return {
+      async moderarPost(postId, decisao, motivo) {
+        const { data, error } = await supabase.rpc("admin_moderar_post", {
+          p_post_id: postId,
+          p_decisao: decisao,
+          p_motivo: motivo ?? null
+        });
+        if (error) throw new Error(error.message);
+        if (typeof data === "string") {
+          return {
+            sucesso: true,
+            mensagem: data
+          };
+        }
+        return {
+          sucesso: true,
+          mensagem: "Post moderado com sucesso."
+        };
       }
     };
   }
