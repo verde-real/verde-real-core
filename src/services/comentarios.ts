@@ -64,41 +64,16 @@ async function notificarMencionados(
   autorId: string,
   autorLinha: any
 ): Promise<void> {
-  const usernames = extrairUsernamesMencionados(conteudo);
-  if (usernames.length === 0) return;
+  if (extrairUsernamesMencionados(conteudo).length === 0) return;
 
-  const { data: perfis, error: erroBusca } = await supabase
-    .from('profiles')
-    .select('id, username')
-    .in('username', usernames);
-  if (erroBusca) throw new Error(erroBusca.message);
-  if (!perfis || perfis.length === 0) return;
+  const { error } = await supabase.rpc('notificar_mencoes', {
+    p_post_id: postId,
+    p_conteudo: conteudo,
+  });
 
-  const nomeDoAutor = autorLinha?.nome ?? (autorLinha?.username ? `@${autorLinha.username}` : 'Alguém');
-
-  // Evita: (a) notificar a si mesmo ao se automencionar, (b) notificação
-  // duplicada quando a mesma pessoa é mencionada mais de uma vez no texto.
-  const idsJaProcessados = new Set<string>();
-  const linhasNovas: any[] = [];
-  for (const perfil of perfis as any[]) {
-    if (perfil.id === autorId) continue;
-    if (idsJaProcessados.has(perfil.id)) continue;
-    idsJaProcessados.add(perfil.id);
-    linhasNovas.push({
-      destinatario_id: perfil.id,
-      tipo: 'comentario',
-      mensagem: `${nomeDoAutor} marcou você em um comentário.`,
-      post_id: postId,
-      ator_id: autorId,
-      lida: false,
-    });
-  }
-
-  if (linhasNovas.length === 0) return;
-
-  const { error: erroInsert } = await supabase.from('notificacoes').insert(linhasNovas);
-  if (erroInsert) throw new Error(erroInsert.message);
+  if (error) throw new Error(error.message);
 }
+
 
 export function criarServicoComentarios(supabase: ClienteSupabaseMinimo) {
   return {

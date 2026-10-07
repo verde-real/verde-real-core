@@ -535,30 +535,12 @@ var VerdeRealCore = (() => {
     return Array.from(encontrados);
   }
   async function notificarMencionados(supabase, conteudo, postId, autorId, autorLinha) {
-    const usernames = extrairUsernamesMencionados(conteudo);
-    if (usernames.length === 0) return;
-    const { data: perfis, error: erroBusca } = await supabase.from("profiles").select("id, username").in("username", usernames);
-    if (erroBusca) throw new Error(erroBusca.message);
-    if (!perfis || perfis.length === 0) return;
-    const nomeDoAutor = autorLinha?.nome ?? (autorLinha?.username ? `@${autorLinha.username}` : "Algu\xE9m");
-    const idsJaProcessados = /* @__PURE__ */ new Set();
-    const linhasNovas = [];
-    for (const perfil of perfis) {
-      if (perfil.id === autorId) continue;
-      if (idsJaProcessados.has(perfil.id)) continue;
-      idsJaProcessados.add(perfil.id);
-      linhasNovas.push({
-        destinatario_id: perfil.id,
-        tipo: "comentario",
-        mensagem: `${nomeDoAutor} marcou voc\xEA em um coment\xE1rio.`,
-        post_id: postId,
-        ator_id: autorId,
-        lida: false
-      });
-    }
-    if (linhasNovas.length === 0) return;
-    const { error: erroInsert } = await supabase.from("notificacoes").insert(linhasNovas);
-    if (erroInsert) throw new Error(erroInsert.message);
+    if (extrairUsernamesMencionados(conteudo).length === 0) return;
+    const { error } = await supabase.rpc("notificar_mencoes", {
+      p_post_id: postId,
+      p_conteudo: conteudo
+    });
+    if (error) throw new Error(error.message);
   }
   function criarServicoComentarios(supabase) {
     return {
@@ -756,15 +738,8 @@ var VerdeRealCore = (() => {
   async function notificarNovoSeguidor(supabase, seguidorId, seguidoId) {
     if (seguidorId === seguidoId) return;
     if (await jaNotificadoPeloBanco(supabase, seguidorId, seguidoId)) return;
-    const { data: perfil, error: erroPerfil } = await supabase.from("profiles").select("nome, username").eq("id", seguidorId).maybeSingle();
-    if (erroPerfil) throw new Error(erroPerfil.message);
-    const nome = perfil?.nome ?? (perfil?.username ? `@${perfil.username}` : "Algu\xE9m");
-    const { error } = await supabase.from("notificacoes").insert({
-      destinatario_id: seguidoId,
-      tipo: "seguidor",
-      mensagem: `${nome} come\xE7ou a seguir voc\xEA`,
-      ator_id: seguidorId,
-      lida: false
+    const { error } = await supabase.rpc("notificar_novo_seguidor", {
+      p_empresa_id: seguidoId
     });
     if (error) throw new Error(error.message);
   }

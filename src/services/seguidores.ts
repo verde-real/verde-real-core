@@ -54,24 +54,13 @@ async function notificarNovoSeguidor(
   if (seguidorId === seguidoId) return;
   if (await jaNotificadoPeloBanco(supabase, seguidorId, seguidoId)) return;
 
-  const { data: perfil, error: erroPerfil } = await supabase
-    .from('profiles')
-    .select('nome, username')
-    .eq('id', seguidorId)
-    .maybeSingle();
-  if (erroPerfil) throw new Error(erroPerfil.message);
-
-  const nome = perfil?.nome ?? (perfil?.username ? `@${perfil.username}` : 'Alguém');
-
-  const { error } = await supabase.from('notificacoes').insert({
-    destinatario_id: seguidoId,
-    tipo: 'seguidor',
-    mensagem: `${nome} começou a seguir você`,
-    ator_id: seguidorId,
-    lida: false,
+  const { error } = await supabase.rpc('notificar_novo_seguidor', {
+    p_empresa_id: seguidoId,
   });
+
   if (error) throw new Error(error.message);
 }
+
 
 export function criarServicoSeguidores(supabase: ClienteSupabaseMinimo, opcoes: OpcoesServicoSeguidores = {}) {
   const { notificarNovoSeguidor: deveNotificar = true } = opcoes;
