@@ -476,14 +476,14 @@ async function notificarMencionados(supabase, conteudo, postId, autorId, autorLi
 function criarServicoComentarios(supabase) {
   return {
     async buscarComentarios(postId) {
-      const { data, error } = await supabase.from("comentarios").select("*, autor:profiles!comentarios_autor_id_fkey(*)").eq("post_id", postId).order("criado_em", { ascending: true });
+      const { data, error } = await supabase.from("comentarios").select("*, autor:profiles!comentarios_autor_id_fkey(id, nome, avatar_url)").eq("post_id", postId).order("criado_em", { ascending: true });
       if (error) throw new Error(error.message);
       return (data ?? []).map(mapearComentario);
     },
     async criarComentario(postId, autorId, conteudo) {
       if (!conteudo || !conteudo.trim()) throw new Error("Digite um coment\xE1rio.");
       const conteudoFinal = conteudo.trim();
-      const { data, error } = await supabase.from("comentarios").insert({ post_id: postId, autor_id: autorId, conteudo: conteudoFinal }).select("*, autor:profiles!comentarios_autor_id_fkey(*)").single();
+      const { data, error } = await supabase.from("comentarios").insert({ post_id: postId, autor_id: autorId, conteudo: conteudoFinal }).select("*, autor:profiles!comentarios_autor_id_fkey(id, nome, avatar_url)").single();
       if (error) throw new Error(error.message);
       const comentario = mapearComentario(data);
       try {
@@ -563,8 +563,8 @@ function mapearPost(linha, idsCurtidos) {
   };
 }
 var SELECT_POST = `*,
-  autor:profiles!posts_autor_id_fkey(*),
-  empresa:profiles!posts_empresa_id_fkey(*),
+  autor:profiles!posts_autor_id_fkey(id, nome, tipo, avatar_url, username),
+  empresa:profiles!posts_empresa_id_fkey(id, nome, tipo, avatar_url, username),
   curtidas(count)`;
 function criarServicoPosts(supabase) {
   async function idsCurtidosDoUsuario(usuarioId) {

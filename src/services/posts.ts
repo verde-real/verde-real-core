@@ -40,8 +40,8 @@ function mapearPost(linha: any, idsCurtidos: Set<string>): Post {
 }
 
 const SELECT_POST = `*,
-  autor:profiles!posts_autor_id_fkey(*),
-  empresa:profiles!posts_empresa_id_fkey(*),
+  autor:profiles!posts_autor_id_fkey(id, nome, tipo, avatar_url, username),
+  empresa:profiles!posts_empresa_id_fkey(id, nome, tipo, avatar_url, username),
   curtidas(count)`;
 
 export interface DadosCriarPost {

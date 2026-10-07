@@ -105,7 +105,7 @@ export function criarServicoComentarios(supabase: ClienteSupabaseMinimo) {
     async buscarComentarios(postId: string): Promise<Comentario[]> {
       const { data, error } = await supabase
         .from('comentarios')
-        .select('*, autor:profiles!comentarios_autor_id_fkey(*)')
+        .select('*, autor:profiles!comentarios_autor_id_fkey(id, nome, avatar_url)')
         .eq('post_id', postId)
         .order('criado_em', { ascending: true });
       if (error) throw new Error(error.message);
@@ -119,7 +119,7 @@ export function criarServicoComentarios(supabase: ClienteSupabaseMinimo) {
       const { data, error } = await supabase
         .from('comentarios')
         .insert({ post_id: postId, autor_id: autorId, conteudo: conteudoFinal })
-        .select('*, autor:profiles!comentarios_autor_id_fkey(*)')
+        .select('*, autor:profiles!comentarios_autor_id_fkey(id, nome, avatar_url)')
         .single();
 
       if (error) throw new Error(error.message);
