@@ -9,12 +9,12 @@ export function criarServicoAdmin(supabase: ClienteSupabaseMinimo) {
   return {
     async moderarPost(
       postId: string,
-      decisao: 'aprovado' | 'rejeitado',
+      acao: 'aprovar' | 'rejeitar',
       motivo?: string | null,
     ): Promise<ResultadoModeracaoPost> {
       const { data, error } = await supabase.rpc('admin_moderar_post', {
         p_post_id: postId,
-        p_decisao: decisao,
+        p_acao: acao,
         p_motivo: motivo ?? null,
       });
 

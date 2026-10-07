@@ -4,5 +4,5 @@ export interface ResultadoModeracaoPost {
     mensagem: string;
 }
 export declare function criarServicoAdmin(supabase: ClienteSupabaseMinimo): {
-    moderarPost(postId: string, decisao: "aprovado" | "rejeitado", motivo?: string | null): Promise<ResultadoModeracaoPost>;
+    moderarPost(postId: string, acao: "aprovar" | "rejeitar", motivo?: string | null): Promise<ResultadoModeracaoPost>;
 };

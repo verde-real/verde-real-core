@@ -992,10 +992,10 @@ var VerdeRealCore = (() => {
   // src/services/admin.ts
   function criarServicoAdmin(supabase) {
     return {
-      async moderarPost(postId, decisao, motivo) {
+      async moderarPost(postId, acao, motivo) {
         const { data, error } = await supabase.rpc("admin_moderar_post", {
           p_post_id: postId,
-          p_decisao: decisao,
+          p_acao: acao,
           p_motivo: motivo ?? null
         });
         if (error) throw new Error(error.message);
