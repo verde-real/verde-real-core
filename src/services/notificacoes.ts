@@ -8,7 +8,7 @@ import { Notificacao, mapearNotificacao } from '../types/notificacao';
  */
 export interface ClienteSupabaseMinimo {
   from: (tabela: string) => any;
-  rpc: (funcao: string, parametros?: Record<string, any>) => Promise<any>;
+  rpc: (funcao: string, parametros?: Record<string, any>) => PromiseLike<any>;
   channel: (nome: string) => any;
   removeChannel: (canal: any) => void;
 }
